@@ -1,14 +1,26 @@
 name = "RitualScore"
-client_id = "<SHOPIFY_API_KEY>"
-application_url = "https://<tunnel-url>"
+client_id = "cf9e38c94d9ca1fb52cad330b30a667a"
+application_url = "https://example.com"
 embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
 
 [access_scopes]
 scopes = "read_products,read_inventory"
 
+[auth]
+redirect_urls = [
+  "https://example.com/auth/callback",
+  "https://example.com/auth/shopify/callback",
+  "https://example.com/api/auth/callback",
+]
+
 [webhooks]
 api_version = "2025-01"
-
-  [[webhooks.subscriptions]]
-  topics = ["app/uninstalled"]
-  uri = "/webhooks/app/uninstalled"
+# app/uninstalled is omitted while using `shopify app dev --use-localhost`.
+# Shopify rejects localhost webhook URIs. Restore this subscription when
+# developing with a public tunnel:
+#   [[webhooks.subscriptions]]
+#   topics = ["app/uninstalled"]
+#   uri = "/webhooks/app/uninstalled"

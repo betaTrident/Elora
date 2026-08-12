@@ -1,0 +1,7 @@
+{
+  "name": "ritualscore",
+  "private": true,
+  "scripts": {
+    "dev": "shopify app dev --skip-dependencies-installation"
+  }
+}

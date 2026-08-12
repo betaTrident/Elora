@@ -51,7 +51,7 @@ Repo folder: `elora/`. Theme shop name in `settings_schema.json` / locales: Elor
 | 0 — Prerequisites & Accounts | **DONE** |
 | 1 — Project Scaffold & Tooling | **DONE** |
 | 2 — Database Schema & Migrations | **DONE** |
-| 3 — Shopify OAuth & Embedded Auth | NOT STARTED |
+| 3 — Shopify OAuth & Embedded Auth | **DONE** |
 | 4 — Backend API Core | NOT STARTED |
 | 5 — Frontend Shell (Vite + Polaris) | NOT STARTED |
 | 6 — Dashboard Page & KPIs | NOT STARTED |
@@ -634,7 +634,7 @@ npm run db:migrate     # applies to Docker MySQL
 
 ## Phase 3 — Shopify OAuth & Embedded Auth
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Goal
 App installs on dev store; every API request is guarded by a verified Shopify session token.
@@ -847,7 +847,7 @@ shopify app dev              # starts CLI + tunnel + opens in dev store
 
 ---
 
-**End of Phase 3 — NOT STARTED**
+**End of Phase 3 — DONE**
 
 ---
 
@@ -2581,5 +2581,5 @@ Use this before submission.
 
 ---
 
-> **Next step:** Phase 0–2 are **DONE**. Continue at **Phase 3 — Shopify OAuth & Embedded Auth**.
+> **Next step:** Phase 0–3 are **DONE**. Continue at **Phase 4 — Backend API Core**.
 > Update the Phase progress table and each phase **Status** / **End of Phase** line as work completes.

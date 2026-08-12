@@ -14,3 +14,10 @@
   - 8 Drizzle tables + client + migrate + `drizzle/0001_initial.sql` applied to Docker MySQL
   - FK: `ritual_components.ritual_id` → `rituals.id` ON DELETE CASCADE
   - Minor (deferred): SQL trailing newline; journal idx 0 vs tag `0001_initial`
+
+## Phase 3 — Shopify OAuth & Embedded Auth
+
+- Task 3: complete (no commits; review approved after dotenv fix)
+  - HS256 session token, requireAuth, GET /api/ping, App Bridge CDN + Polaris shell
+  - Vitest 4/4: missing token 401, invalid JWT 401, valid ping 200, public /health
+  - Live Admin install still needs Partner login + `shopify app dev`
