@@ -1,14 +1,11 @@
 import { Router } from 'express'
+import { getDashboardData } from '../services/dashboard'
 
 const router = Router()
 
-router.get('/', async (_req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
-    res.json({
-      counts: { total: 0, healthy: 0, broken: 0, unscored: 0, openAlerts: 0 },
-      worst5: [],
-      recentActivity: [],
-    })
+    res.json(await getDashboardData(req.shop.shopId))
   } catch (e) {
     next(e)
   }

@@ -24,6 +24,14 @@ vi.mock('../db/client', () => ({
   },
 }))
 
+vi.mock('../services/dashboard', () => ({
+  getDashboardData: vi.fn(async () => ({
+    counts: { total: 0, healthy: 0, broken: 0, unscored: 0, openAlerts: 0 },
+    worst5: [],
+    recentActivity: [],
+  })),
+}))
+
 beforeAll(() => {
   process.env.VITEST = 'true'
   process.env.SHOPIFY_API_KEY = TEST_API_KEY

@@ -53,8 +53,8 @@ Repo folder: `elora/`. Theme shop name in `settings_schema.json` / locales: Elor
 | 2 — Database Schema & Migrations | **DONE** |
 | 3 — Shopify OAuth & Embedded Auth | **DONE** |
 | 4 — Backend API Core | **DONE** |
-| 5 — Frontend Shell (Vite + Polaris) | NOT STARTED |
-| 6 — Dashboard Page & KPIs | NOT STARTED |
+| 5 — Frontend Shell (Vite + Polaris) | **DONE** |
+| 6 — Dashboard Page & KPIs | **DONE** |
 | 7 — Ritual CRUD | NOT STARTED |
 | 8 — Activity Log | NOT STARTED |
 | 9 — Health Score Engine + Alerts | NOT STARTED |
@@ -996,7 +996,7 @@ export default router
 
 ## Phase 5 — Frontend Shell (Vite + Polaris)
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Goal
 Polaris-native admin shell with Nav, TitleBar, and all 5 route placeholders showing inside Admin.
@@ -1124,13 +1124,13 @@ export function EmptyState({ heading, description, action, image }: Props) {
 
 ---
 
-**End of Phase 5 — NOT STARTED**
+**End of Phase 5 — DONE**
 
 ---
 
 ## Phase 6 — Dashboard Page & KPIs
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Goal
 Dashboard loads KPI cards + ranked ritual table + recent activity in ≤ 30 seconds.
@@ -1273,7 +1273,7 @@ function KpiCard({ label, value, tone }: { label: string; value: number; tone?: 
 
 ---
 
-**End of Phase 6 — NOT STARTED**
+**End of Phase 6 — DONE**
 
 ---
 
@@ -2581,5 +2581,5 @@ Use this before submission.
 
 ---
 
-> **Next step:** Phase 0–4 are **DONE**. Continue at **Phase 5 — Frontend Shell (Vite + Polaris)**.
+> **Next step:** Phase 0–6 are **DONE**. Continue at **Phase 7 — Ritual CRUD (Create / Update / Archive)**.
 > Update the Phase progress table and each phase **Status** / **End of Phase** line as work completes.

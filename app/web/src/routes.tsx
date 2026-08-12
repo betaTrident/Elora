@@ -1,46 +1,31 @@
-import { useEffect, useState } from 'react'
-import { Routes, Route } from 'react-router-dom'
-import { Banner, Page, Text } from '@shopify/polaris'
-import { api } from './services/api'
-
-function HomePage() {
-  const [shop, setShop] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    api
-      .get<{ shop: string }>('/api/ping')
-      .then((data) => {
-        if (!cancelled) setShop(data.shop)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Ping failed')
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  return (
-    <Page title="RitualScore">
-      {error ? (
-        <Banner tone="critical">{error}</Banner>
-      ) : (
-        <Text as="p" variant="bodyMd">
-          {shop ? `Connected to ${shop}` : 'Connecting…'}
-        </Text>
-      )}
-    </Page>
-  )
-}
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { NavMenu } from '@shopify/app-bridge-react'
+import { Dashboard } from './pages/Dashboard'
+import { Rituals } from './pages/Rituals'
+import { RitualForm } from './pages/Rituals/RitualForm'
+import { Activity } from './pages/Activity'
+import { Settings } from './pages/Settings'
 
 export function AppRoutes() {
   return (
-    <Routes>
-      <Route path="*" element={<HomePage />} />
-    </Routes>
+    <>
+      <NavMenu>
+        <a href="/" rel="home">
+          Dashboard
+        </a>
+        <a href="/rituals">Routines</a>
+        <a href="/activity">Activity</a>
+        <a href="/settings">Settings</a>
+      </NavMenu>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/rituals" element={<Rituals />} />
+        <Route path="/rituals/new" element={<RitualForm />} />
+        <Route path="/rituals/:id/edit" element={<RitualForm />} />
+        <Route path="/activity" element={<Activity />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   )
 }

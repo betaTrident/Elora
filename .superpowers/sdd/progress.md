@@ -29,3 +29,17 @@
   - Vitest 27/27 (ping 4 + api 23); tsc + eslint pass
   - Review: Approved (Important PUT `/api/rituals/missing` 404 test added)
   - Minor (deferred): errorHandler 500 missing `return`; `void next`; thin success-path coverage; `listRituals` ignores `?status=`
+
+## Phase 5 — Frontend Shell (Vite + Polaris)
+
+- Task 5: complete (no commits; review approved after ScoreBreakdown/TitleBar/EmptyState fixes)
+  - NavMenu, PageLayout, placeholders, ScoreBadge, ScoreBreakdown ProgressBar, EmptyState wrapper
+  - Vitest 4/4 getScoreStatus; tsc pass
+  - Minor (deferred): unused user-event; Badge copy not asserted in tests
+
+## Phase 6 — Dashboard Page & KPIs
+
+- Task 6: complete (no commits; review approved)
+  - Backend: Drizzle `getDashboardData`; 31/31 server tests
+  - Frontend: KPI cards, IndexTable, activity, skeleton/empty/error; 7/7 web tests
+  - Minor (deferred): KPI grid 1-up on xs; Create routine on Page not TitleBar; aria-live not on empty/error; formatRelativeTime untested

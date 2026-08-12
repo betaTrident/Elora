@@ -1,0 +1,1126 @@
+﻿# Review package: HEAD..WORKING_TREE (Phase 6 backend + frontend uncommitted)
+
+## Commits
+(none)
+
+## Files changed
+
+ app/server/src/__tests__/api.test.ts |  8 +++++
+ app/server/src/routes/dashboard.ts   |  9 ++---
+ app/web/package.json                 | 16 ++++++---
+ app/web/src/routes.tsx               | 67 ++++++++++++++----------------------
+ 4 files changed, 48 insertions(+), 52 deletions(-)
+ M app/server/src/__tests__/api.test.ts
+ M app/server/src/routes/dashboard.ts
+ M app/web/package.json
+ M app/web/src/routes.tsx
+?? app/server/src/__tests__/dashboard.test.ts
+?? app/server/src/services/dashboard.ts
+?? app/web/src/components/
+?? app/web/src/pages/
+?? app/web/src/test-setup.ts
+?? app/web/src/types/
+?? app/web/src/utils/
+?? app/web/vitest.config.ts
+
+## Diff
+
+diff --git a/app/server/src/__tests__/api.test.ts b/app/server/src/__tests__/api.test.ts
+index 4608397..162a62d 100644
+--- a/app/server/src/__tests__/api.test.ts
++++ b/app/server/src/__tests__/api.test.ts
+@@ -17,20 +17,28 @@ vi.mock('../db/client', () => ({
+   db: {
+     select: (...args: unknown[]) => mockSelect(...args),
+     insert: vi.fn(() => ({
+       values: vi.fn(() => ({
+         onDuplicateKeyUpdate: vi.fn().mockResolvedValue(undefined),
+       })),
+     })),
+   },
+ }))
+ 
++vi.mock('../services/dashboard', () => ({
++  getDashboardData: vi.fn(async () => ({
++    counts: { total: 0, healthy: 0, broken: 0, unscored: 0, openAlerts: 0 },
++    worst5: [],
++    recentActivity: [],
++  })),
++}))
++
+ beforeAll(() => {
+   process.env.VITEST = 'true'
+   process.env.SHOPIFY_API_KEY = TEST_API_KEY
+   process.env.SHOPIFY_API_SECRET = TEST_SECRET
+   process.env.DATABASE_URL = 'mysql://test:test@localhost:3306/test'
+   process.env.SHOPIFY_APP_URL = 'https://test.example.com'
+   process.env.PORT = '3000'
+ })
+ 
+ let app: Express
+diff --git a/app/server/src/routes/dashboard.ts b/app/server/src/routes/dashboard.ts
+index e335abd..f70fbac 100644
+--- a/app/server/src/routes/dashboard.ts
++++ b/app/server/src/routes/dashboard.ts
+@@ -1,17 +1,14 @@
+ import { Router } from 'express'
++import { getDashboardData } from '../services/dashboard'
+ 
+ const router = Router()
+ 
+-router.get('/', async (_req, res, next) => {
++router.get('/', async (req, res, next) => {
+   try {
+-    res.json({
+-      counts: { total: 0, healthy: 0, broken: 0, unscored: 0, openAlerts: 0 },
+-      worst5: [],
+-      recentActivity: [],
+-    })
++    res.json(await getDashboardData(req.shop.shopId))
+   } catch (e) {
+     next(e)
+   }
+ })
+ 
+ export default router
+diff --git a/app/web/package.json b/app/web/package.json
+index 7876268..4017664 100644
+--- a/app/web/package.json
++++ b/app/web/package.json
+@@ -1,20 +1,26 @@
+ {
+   "name": "ritualscore-web",
+   "scripts": {
+     "dev": "vite",
+     "build": "tsc && vite build",
+     "preview": "vite preview"
+   },
+   "dependencies": {
++    "@shopify/app-bridge-react": "latest",
++    "@shopify/polaris": "^13",
+     "react": "^19",
+     "react-dom": "^19",
+-    "react-router-dom": "^6",
+-    "@shopify/polaris": "^13",
+-    "@shopify/app-bridge-react": "latest"
++    "react-router-dom": "^6"
+   },
+   "devDependencies": {
+-    "vite": "^5",
++    "@testing-library/dom": "^10.4.1",
++    "@testing-library/jest-dom": "^7.0.1",
++    "@testing-library/react": "^16.3.2",
++    "@testing-library/user-event": "^14.6.4",
+     "@vitejs/plugin-react": "^4",
+-    "typescript": "^5"
++    "jsdom": "^29.1.1",
++    "typescript": "^5",
++    "vite": "^5",
++    "vitest": "^4.1.10"
+   }
+ }
+diff --git a/app/web/src/routes.tsx b/app/web/src/routes.tsx
+index 3dbcb55..bed0d37 100644
+--- a/app/web/src/routes.tsx
++++ b/app/web/src/routes.tsx
+@@ -1,46 +1,31 @@
+-import { useEffect, useState } from 'react'
+-import { Routes, Route } from 'react-router-dom'
+-import { Banner, Page, Text } from '@shopify/polaris'
+-import { api } from './services/api'
+-
+-function HomePage() {
+-  const [shop, setShop] = useState<string | null>(null)
+-  const [error, setError] = useState<string | null>(null)
+-
+-  useEffect(() => {
+-    let cancelled = false
+-    api
+-      .get<{ shop: string }>('/api/ping')
+-      .then((data) => {
+-        if (!cancelled) setShop(data.shop)
+-      })
+-      .catch((err: unknown) => {
+-        if (!cancelled) {
+-          setError(err instanceof Error ? err.message : 'Ping failed')
+-        }
+-      })
+-    return () => {
+-      cancelled = true
+-    }
+-  }, [])
+-
+-  return (
+-    <Page title="RitualScore">
+-      {error ? (
+-        <Banner tone="critical">{error}</Banner>
+-      ) : (
+-        <Text as="p" variant="bodyMd">
+-          {shop ? `Connected to ${shop}` : 'ConnectingΓÇª'}
+-        </Text>
+-      )}
+-    </Page>
+-  )
+-}
++import { Routes, Route, Navigate } from 'react-router-dom'
++import { NavMenu } from '@shopify/app-bridge-react'
++import { Dashboard } from './pages/Dashboard'
++import { Rituals } from './pages/Rituals'
++import { RitualForm } from './pages/Rituals/RitualForm'
++import { Activity } from './pages/Activity'
++import { Settings } from './pages/Settings'
+ 
+ export function AppRoutes() {
+   return (
+-    <Routes>
+-      <Route path="*" element={<HomePage />} />
+-    </Routes>
++    <>
++      <NavMenu>
++        <a href="/" rel="home">
++          Dashboard
++        </a>
++        <a href="/rituals">Routines</a>
++        <a href="/activity">Activity</a>
++        <a href="/settings">Settings</a>
++      </NavMenu>
++      <Routes>
++        <Route path="/" element={<Dashboard />} />
++        <Route path="/rituals" element={<Rituals />} />
++        <Route path="/rituals/new" element={<RitualForm />} />
++        <Route path="/rituals/:id/edit" element={<RitualForm />} />
++        <Route path="/activity" element={<Activity />} />
++        <Route path="/settings" element={<Settings />} />
++        <Route path="*" element={<Navigate to="/" replace />} />
++      </Routes>
++    </>
+   )
+ }
+
+--- /dev/null
++++ b/app/server/src/services/dashboard.ts
+
+diff --git a/app/server/src/services/dashboard.ts b/app/server/src/services/dashboard.ts
+new file mode 100644
+index 0000000..98e77f2
+--- /dev/null
++++ b/app/server/src/services/dashboard.ts
+@@ -0,0 +1,30 @@
++import { eq, and, count, desc } from 'drizzle-orm'
++import { db } from '../db/client'
++import { rituals, alerts, activityLogs } from '../db/schema'
++
++export async function getDashboardData(shopId: string) {
++  const allRituals = await db.select().from(rituals).where(
++    and(eq(rituals.shopId, shopId), eq(rituals.status, 'active'))
++  )
++  const openAlerts = await db.select({ count: count() }).from(alerts).where(
++    and(eq(alerts.shopId, shopId), eq(alerts.status, 'open'))
++  )
++  const recentActivity = await db.select().from(activityLogs)
++    .where(eq(activityLogs.shopId, shopId))
++    .orderBy(desc(activityLogs.createdAt))
++    .limit(5)
++
++  const healthy = allRituals.filter(r => r.lastScore !== null && r.lastScore >= r.scoreThreshold).length
++  const broken = allRituals.filter(r => r.lastScore !== null && r.lastScore < r.scoreThreshold).length
++  const unscored = allRituals.filter(r => r.lastScore === null).length
++  const worst5 = allRituals
++    .filter(r => r.lastScore !== null)
++    .sort((a, b) => (a.lastScore ?? 0) - (b.lastScore ?? 0))
++    .slice(0, 5)
++
++  return {
++    counts: { total: allRituals.length, healthy, broken, unscored, openAlerts: openAlerts[0]?.count ?? 0 },
++    worst5,
++    recentActivity,
++  }
++}
+
+--- /dev/null
++++ b/app/server/src/__tests__/dashboard.test.ts
+
+diff --git a/app/server/src/__tests__/dashboard.test.ts b/app/server/src/__tests__/dashboard.test.ts
+new file mode 100644
+index 0000000..d7f213a
+--- /dev/null
++++ b/app/server/src/__tests__/dashboard.test.ts
+@@ -0,0 +1,112 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest'
++
++const mockSelect = vi.fn()
++
++vi.mock('../db/client', () => ({
++  db: {
++    select: (...args: unknown[]) => mockSelect(...args),
++  },
++}))
++
++import { getDashboardData } from '../services/dashboard'
++
++function createThenableChain<T>(result: T) {
++  const chain = {
++    from: vi.fn(),
++    where: vi.fn(),
++    orderBy: vi.fn(),
++    limit: vi.fn(),
++    then: (resolve: (value: T) => unknown, reject?: (reason: unknown) => unknown) =>
++      Promise.resolve(result).then(resolve, reject),
++  }
++  chain.from.mockReturnValue(chain)
++  chain.where.mockReturnValue(chain)
++  chain.orderBy.mockReturnValue(chain)
++  chain.limit.mockReturnValue(chain)
++  return chain
++}
++
++function stubQueries(rituals: unknown[], alerts: unknown[], activity: unknown[]) {
++  const ritualsQuery = createThenableChain(rituals)
++  const alertsQuery = createThenableChain(alerts)
++  const activityQuery = createThenableChain(activity)
++  mockSelect
++    .mockReturnValueOnce(ritualsQuery)
++    .mockReturnValueOnce(alertsQuery)
++    .mockReturnValueOnce(activityQuery)
++  return { ritualsQuery, alertsQuery, activityQuery }
++}
++
++const SHOP_ID = 'shop-id-1'
++
++describe('getDashboardData', () => {
++  beforeEach(() => {
++    vi.clearAllMocks()
++  })
++
++  it('returns zeros and empty arrays when shop has no data', async () => {
++    stubQueries([], [{ count: 0 }], [])
++
++    const result = await getDashboardData(SHOP_ID)
++
++    expect(result).toEqual({
++      counts: { total: 0, healthy: 0, broken: 0, unscored: 0, openAlerts: 0 },
++      worst5: [],
++      recentActivity: [],
++    })
++  })
++
++  it('counts healthy, broken, and unscored rituals and ranks worst5 by lastScore', async () => {
++    const rituals = [
++      { id: '1', title: 'Healthy high', lastScore: 90, scoreThreshold: 70 },
++      { id: '2', title: 'Broken mid', lastScore: 40, scoreThreshold: 70 },
++      { id: '3', title: 'Unscored', lastScore: null, scoreThreshold: 70 },
++      { id: '4', title: 'Worst', lastScore: 10, scoreThreshold: 70 },
++      { id: '5', title: 'Broken 55', lastScore: 55, scoreThreshold: 70 },
++      { id: '6', title: 'Healthy at threshold', lastScore: 70, scoreThreshold: 70 },
++      { id: '7', title: 'Broken 20', lastScore: 20, scoreThreshold: 70 },
++      { id: '8', title: 'Broken 30', lastScore: 30, scoreThreshold: 70 },
++    ]
++    stubQueries(rituals, [{ count: 0 }], [])
++
++    const result = await getDashboardData(SHOP_ID)
++
++    expect(result.counts).toEqual({
++      total: 8,
++      healthy: 2,
++      broken: 5,
++      unscored: 1,
++      openAlerts: 0,
++    })
++    expect(result.worst5.map((r) => r.id)).toEqual(['4', '7', '8', '2', '5'])
++    expect(result.worst5).toHaveLength(5)
++    expect(result.worst5.every((r) => r.lastScore !== null)).toBe(true)
++  })
++
++  it('counts open alerts from the aggregate query', async () => {
++    stubQueries([], [{ count: 3 }], [])
++
++    const result = await getDashboardData(SHOP_ID)
++
++    expect(result.counts.openAlerts).toBe(3)
++    expect(result.counts.total).toBe(0)
++  })
++
++  it('limits recent activity to 5', async () => {
++    const activity = [
++      { id: 'a1', summary: 'one', createdAt: new Date('2026-08-13T01:00:00Z') },
++      { id: 'a2', summary: 'two', createdAt: new Date('2026-08-13T02:00:00Z') },
++      { id: 'a3', summary: 'three', createdAt: new Date('2026-08-13T03:00:00Z') },
++      { id: 'a4', summary: 'four', createdAt: new Date('2026-08-13T04:00:00Z') },
++      { id: 'a5', summary: 'five', createdAt: new Date('2026-08-13T05:00:00Z') },
++    ]
++    const { activityQuery } = stubQueries([], [{ count: 0 }], activity)
++
++    const result = await getDashboardData(SHOP_ID)
++
++    expect(activityQuery.orderBy).toHaveBeenCalled()
++    expect(activityQuery.limit).toHaveBeenCalledWith(5)
++    expect(result.recentActivity).toEqual(activity)
++    expect(result.recentActivity).toHaveLength(5)
++  })
++})
+
+--- /dev/null
++++ b/app/web/src/components/EmptyState.tsx
+
+diff --git a/app/web/src/components/EmptyState.tsx b/app/web/src/components/EmptyState.tsx
+new file mode 100644
+index 0000000..35d6a32
+--- /dev/null
++++ b/app/web/src/components/EmptyState.tsx
+@@ -0,0 +1,29 @@
++import { EmptyState as PolarisEmptyState } from '@shopify/polaris'
++
++const DEFAULT_IMAGE =
++  'https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png'
++
++interface EmptyStateAction {
++  content: string
++  url?: string
++  onAction?: () => void
++}
++
++interface EmptyStateProps {
++  heading: string
++  description: string
++  action?: EmptyStateAction
++  image?: string
++}
++
++export function EmptyState({ heading, description, action, image }: EmptyStateProps) {
++  return (
++    <PolarisEmptyState
++      heading={heading}
++      image={image ?? DEFAULT_IMAGE}
++      action={action}
++    >
++      <p>{description}</p>
++    </PolarisEmptyState>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/components/PageLayout.tsx
+
+diff --git a/app/web/src/components/PageLayout.tsx b/app/web/src/components/PageLayout.tsx
+new file mode 100644
+index 0000000..345c70d
+--- /dev/null
++++ b/app/web/src/components/PageLayout.tsx
+@@ -0,0 +1,22 @@
++import { Frame, Page } from '@shopify/polaris'
++import type { ComplexAction } from '@shopify/polaris'
++import { TitleBar } from '@shopify/app-bridge-react'
++import type { ReactNode } from 'react'
++
++interface PageLayoutProps {
++  title: string
++  titleBarTitle?: string
++  children?: ReactNode
++  primaryAction?: ComplexAction
++}
++
++export function PageLayout({ title, titleBarTitle, children, primaryAction }: PageLayoutProps) {
++  return (
++    <Frame>
++      <TitleBar title={titleBarTitle ?? title} />
++      <Page title={title} primaryAction={primaryAction}>
++        {children}
++      </Page>
++    </Frame>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/components/ScoreBadge.tsx
+
+diff --git a/app/web/src/components/ScoreBadge.tsx b/app/web/src/components/ScoreBadge.tsx
+new file mode 100644
+index 0000000..c692d97
+--- /dev/null
++++ b/app/web/src/components/ScoreBadge.tsx
+@@ -0,0 +1,26 @@
++import { Badge } from '@shopify/polaris'
++import { getScoreStatus } from '../utils/scoreStatus'
++
++export type { ScoreStatus } from '../utils/scoreStatus'
++export { getScoreStatus }
++
++interface ScoreBadgeProps {
++  score: number | null
++  threshold: number
++}
++
++const STATUS_CONFIG = {
++  'not-scored': { tone: undefined, label: 'Not scored' },
++  healthy: { tone: 'success' as const, label: null },
++  'at-risk': { tone: 'attention' as const, label: null },
++  broken: { tone: 'critical' as const, label: null },
++} as const
++
++export function ScoreBadge({ score, threshold }: ScoreBadgeProps) {
++  const status = getScoreStatus(score, threshold)
++  const config = STATUS_CONFIG[status]
++  const displayText =
++    config.label !== null ? config.label : `${status === 'healthy' ? 'Healthy' : status === 'at-risk' ? 'At risk' : 'Broken'} \u00B7 ${score}`
++
++  return <Badge tone={config.tone}>{displayText}</Badge>
++}
+
+--- /dev/null
++++ b/app/web/src/components/ScoreBreakdown.tsx
+
+diff --git a/app/web/src/components/ScoreBreakdown.tsx b/app/web/src/components/ScoreBreakdown.tsx
+new file mode 100644
+index 0000000..39495f4
+--- /dev/null
++++ b/app/web/src/components/ScoreBreakdown.tsx
+@@ -0,0 +1,32 @@
++import { BlockStack, Box, Text, ProgressBar } from '@shopify/polaris'
++
++export interface BreakdownItem {
++  label: string
++  value: number
++  max: number
++  description: string
++}
++
++interface ScoreBreakdownProps {
++  breakdown: BreakdownItem[]
++}
++
++export function ScoreBreakdown({ breakdown }: ScoreBreakdownProps) {
++  return (
++    <BlockStack gap="300">
++      {breakdown.map((item) => (
++        <Box key={item.label}>
++          <BlockStack gap="100">
++            <Text as="span" variant="bodyMd">
++              {item.label} ΓÇö {item.value}/{item.max}
++            </Text>
++            <ProgressBar progress={(item.value / item.max) * 100} size="small" />
++            <Text as="p" variant="bodySm" tone="subdued">
++              {item.description}
++            </Text>
++          </BlockStack>
++        </Box>
++      ))}
++    </BlockStack>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/components/__tests__/ScoreBadge.test.ts
+
+diff --git a/app/web/src/components/__tests__/ScoreBadge.test.ts b/app/web/src/components/__tests__/ScoreBadge.test.ts
+new file mode 100644
+index 0000000..5f62912
+--- /dev/null
++++ b/app/web/src/components/__tests__/ScoreBadge.test.ts
+@@ -0,0 +1,24 @@
++import { describe, it, expect } from 'vitest'
++import { getScoreStatus } from '../../utils/scoreStatus'
++
++describe('getScoreStatus', () => {
++  it('returns not-scored for null score', () => {
++    expect(getScoreStatus(null, 70)).toBe('not-scored')
++  })
++
++  it('returns healthy when score >= threshold and >= 80', () => {
++    expect(getScoreStatus(90, 70)).toBe('healthy')
++    expect(getScoreStatus(80, 70)).toBe('healthy')
++    expect(getScoreStatus(80, 80)).toBe('healthy')
++  })
++
++  it('returns at-risk when score >= threshold but < 80', () => {
++    expect(getScoreStatus(75, 70)).toBe('at-risk')
++    expect(getScoreStatus(70, 70)).toBe('at-risk')
++  })
++
++  it('returns broken when score < threshold', () => {
++    expect(getScoreStatus(50, 70)).toBe('broken')
++    expect(getScoreStatus(69, 70)).toBe('broken')
++  })
++})
+
+--- /dev/null
++++ b/app/web/src/pages/Activity/index.tsx
+
+diff --git a/app/web/src/pages/Activity/index.tsx b/app/web/src/pages/Activity/index.tsx
+new file mode 100644
+index 0000000..080cb5c
+--- /dev/null
++++ b/app/web/src/pages/Activity/index.tsx
+@@ -0,0 +1,13 @@
++import { Text } from '@shopify/polaris'
++import { PageLayout } from '../../components/PageLayout'
++
++export function Activity() {
++  return (
++    <PageLayout title="Activity">
++      <Text as="p" variant="bodyMd">
++        A chronological log of score changes, alerts, and kit events across your
++        store.
++      </Text>
++    </PageLayout>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/KpiCards.tsx
+
+diff --git a/app/web/src/pages/Dashboard/KpiCards.tsx b/app/web/src/pages/Dashboard/KpiCards.tsx
+new file mode 100644
+index 0000000..f3bed3e
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/KpiCards.tsx
+@@ -0,0 +1,37 @@
++import { BlockStack, Card, Grid, Text } from '@shopify/polaris'
++import type { DashboardCounts } from '../../types'
++
++interface KpiCardsProps {
++  counts: DashboardCounts
++}
++
++const CARDS = [
++  { label: 'Total routines', key: 'total' as const, tone: undefined },
++  { label: 'Healthy', key: 'healthy' as const, tone: 'success' as const },
++  { label: 'At risk / Broken', key: 'broken' as const, tone: 'critical' as const },
++  { label: 'Open alerts', key: 'openAlerts' as const, tone: 'caution' as const },
++]
++
++export function KpiCards({ counts }: KpiCardsProps) {
++  return (
++    <BlockStack gap="300">
++      <Text as="h2" variant="headingMd">Store routine health</Text>
++      <Grid>
++        {CARDS.map(({ label, key, tone }) => (
++          <Grid.Cell key={label} columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
++            <Card>
++              <BlockStack gap="200">
++                <Text as="p" variant="bodyMd" tone="subdued">
++                  {label}
++                </Text>
++                <Text as="p" variant="headingXl" tone={tone}>
++                  {counts[key]}
++                </Text>
++              </BlockStack>
++            </Card>
++          </Grid.Cell>
++        ))}
++      </Grid>
++    </BlockStack>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/RecentActivity.tsx
+
+diff --git a/app/web/src/pages/Dashboard/RecentActivity.tsx b/app/web/src/pages/Dashboard/RecentActivity.tsx
+new file mode 100644
+index 0000000..0b23dc1
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/RecentActivity.tsx
+@@ -0,0 +1,35 @@
++import { BlockStack, Card, Text } from '@shopify/polaris'
++import type { ActivityLog } from '../../types'
++import { formatRelativeTime } from '../../utils/formatRelativeTime'
++
++interface RecentActivityProps {
++  activity: ActivityLog[]
++}
++
++export function RecentActivity({ activity }: RecentActivityProps) {
++  const entries = activity.slice(0, 5)
++
++  return (
++    <Card>
++      <BlockStack gap="300">
++        <Text as="h2" variant="headingMd">Recent activity</Text>
++        {entries.length === 0 ? (
++          <Text as="p" variant="bodyMd" tone="subdued">
++            No recent activity
++          </Text>
++        ) : (
++          entries.map((entry) => (
++            <BlockStack key={entry.id} gap="100">
++              <Text as="p" variant="bodyMd">
++                {entry.summary}
++              </Text>
++              <Text as="p" variant="bodySm" tone="subdued">
++                {formatRelativeTime(new Date(entry.createdAt as string))}
++              </Text>
++            </BlockStack>
++          ))
++        )}
++      </BlockStack>
++    </Card>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/RitualHealthTable.tsx
+
+diff --git a/app/web/src/pages/Dashboard/RitualHealthTable.tsx b/app/web/src/pages/Dashboard/RitualHealthTable.tsx
+new file mode 100644
+index 0000000..0aba6cc
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/RitualHealthTable.tsx
+@@ -0,0 +1,44 @@
++import { BlockStack, IndexTable, Link, Text } from '@shopify/polaris'
++import type { RitualSummary } from '../../types'
++import { ScoreBadge } from '../../components/ScoreBadge'
++import { formatRelativeTime } from '../../utils/formatRelativeTime'
++
++interface RitualHealthTableProps {
++  rituals: RitualSummary[]
++}
++
++export function RitualHealthTable({ rituals }: RitualHealthTableProps) {
++  return (
++    <BlockStack gap="300">
++      <Text as="h2" variant="headingMd">Routines needing attention</Text>
++      <IndexTable
++        resourceName={{ singular: 'routine', plural: 'routines' }}
++        itemCount={rituals.length}
++        headings={[
++          { title: 'Routine name' },
++          { title: 'Score' },
++          { title: 'Threshold' },
++          { title: 'Last checked' },
++        ]}
++        selectable={false}
++      >
++        {rituals.map((ritual, index) => (
++          <IndexTable.Row key={ritual.id} id={ritual.id} position={index}>
++            <IndexTable.Cell>
++              <Link url={`/rituals/${ritual.id}/edit`}>{ritual.title}</Link>
++            </IndexTable.Cell>
++            <IndexTable.Cell>
++              <ScoreBadge score={ritual.lastScore} threshold={ritual.scoreThreshold} />
++            </IndexTable.Cell>
++            <IndexTable.Cell>{ritual.scoreThreshold}</IndexTable.Cell>
++            <IndexTable.Cell>
++              {ritual.lastScoredAt
++                ? formatRelativeTime(new Date(ritual.lastScoredAt as string))
++                : '\u2014'}
++            </IndexTable.Cell>
++          </IndexTable.Row>
++        ))}
++      </IndexTable>
++    </BlockStack>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/__tests__/Dashboard.test.tsx
+
+diff --git a/app/web/src/pages/Dashboard/__tests__/Dashboard.test.tsx b/app/web/src/pages/Dashboard/__tests__/Dashboard.test.tsx
+new file mode 100644
+index 0000000..541743b
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/__tests__/Dashboard.test.tsx
+@@ -0,0 +1,78 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest'
++import { render, screen } from '@testing-library/react'
++import { MemoryRouter } from 'react-router-dom'
++import { AppProvider } from '@shopify/polaris'
++import enTranslations from '@shopify/polaris/locales/en.json'
++import type { ReactNode } from 'react'
++
++vi.mock('../../../services/api', () => ({
++  api: {
++    get: vi.fn(),
++  },
++}))
++
++vi.mock('@shopify/app-bridge-react', () => ({
++  TitleBar: () => null,
++}))
++
++import { Dashboard } from '../index'
++import { api } from '../../../services/api'
++
++const mockGet = api.get as ReturnType<typeof vi.fn>
++
++function Wrapper({ children }: { children: ReactNode }) {
++  return (
++    <MemoryRouter>
++      <AppProvider i18n={enTranslations}>{children}</AppProvider>
++    </MemoryRouter>
++  )
++}
++
++const emptyData = {
++  counts: { total: 0, healthy: 0, broken: 0, unscored: 0, openAlerts: 0 },
++  worst5: [],
++  recentActivity: [],
++}
++
++const fullData = {
++  counts: { total: 5, healthy: 3, broken: 1, unscored: 1, openAlerts: 2 },
++  worst5: [
++    {
++      id: 'r1',
++      title: 'Morning routine',
++      lastScore: 45,
++      scoreThreshold: 70,
++      lastScoredAt: new Date().toISOString(),
++    },
++  ],
++  recentActivity: [],
++}
++
++describe('Dashboard', () => {
++  beforeEach(() => {
++    vi.clearAllMocks()
++  })
++
++  it('shows empty state heading when counts.total === 0', async () => {
++    mockGet.mockResolvedValueOnce(emptyData)
++    render(<Dashboard />, { wrapper: Wrapper })
++    const heading = await screen.findByText('Start tracking your beauty routines')
++    expect(heading).toBeTruthy()
++  })
++
++  it('shows error banner when api.get rejects', async () => {
++    mockGet.mockRejectedValueOnce(new Error('Network error'))
++    render(<Dashboard />, { wrapper: Wrapper })
++    const banner = await screen.findByText('Dashboard failed to load')
++    expect(banner).toBeTruthy()
++  })
++
++  it('renders KPI labels when data is present', async () => {
++    mockGet.mockResolvedValueOnce(fullData)
++    render(<Dashboard />, { wrapper: Wrapper })
++    expect(await screen.findByText('Total routines')).toBeTruthy()
++    expect(screen.getByText('Healthy')).toBeTruthy()
++    expect(screen.getByText('At risk / Broken')).toBeTruthy()
++    expect(screen.getByText('Open alerts')).toBeTruthy()
++  })
++})
+
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/index.tsx
+
+diff --git a/app/web/src/pages/Dashboard/index.tsx b/app/web/src/pages/Dashboard/index.tsx
+new file mode 100644
+index 0000000..7166e6d
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/index.tsx
+@@ -0,0 +1,110 @@
++import { useEffect, useState } from 'react'
++import { Banner, Grid, Layout, SkeletonBodyText, SkeletonPage } from '@shopify/polaris'
++import { PageLayout } from '../../components/PageLayout'
++import { EmptyState } from '../../components/EmptyState'
++import type { DashboardData } from '../../types'
++import { api } from '../../services/api'
++import { KpiCards } from './KpiCards'
++import { RitualHealthTable } from './RitualHealthTable'
++import { RecentActivity } from './RecentActivity'
++
++const PRIMARY_ACTION = { content: 'Create routine', url: '/rituals/new' }
++
++export function Dashboard() {
++  const [data, setData] = useState<DashboardData | null>(null)
++  const [loading, setLoading] = useState(true)
++  const [error, setError] = useState<Error | null>(null)
++
++  function fetchData() {
++    setLoading(true)
++    setError(null)
++    api
++      .get<DashboardData>('/api/dashboard')
++      .then((d) => setData(d))
++      .catch((e: unknown) =>
++        setError(e instanceof Error ? e : new Error(String(e))),
++      )
++      .finally(() => setLoading(false))
++  }
++
++  useEffect(() => {
++    fetchData()
++  }, [])
++
++  if (loading) {
++    return (
++      <div aria-live="polite" aria-atomic="true">
++        <SkeletonPage primaryAction>
++          <Layout>
++            <Layout.Section>
++              <SkeletonBodyText lines={4} />
++            </Layout.Section>
++            <Layout.Section>
++              <SkeletonBodyText lines={8} />
++            </Layout.Section>
++          </Layout>
++        </SkeletonPage>
++      </div>
++    )
++  }
++
++  if (error) {
++    return (
++      <PageLayout
++        title="Dashboard"
++        titleBarTitle="RitualScore"
++        primaryAction={PRIMARY_ACTION}
++      >
++        <Banner
++          tone="critical"
++          title="Dashboard failed to load"
++          action={{ content: 'Retry', onAction: () => window.location.reload() }}
++        >
++          <p>{error.message}</p>
++        </Banner>
++      </PageLayout>
++    )
++  }
++
++  if (!data || data.counts.total === 0) {
++    return (
++      <PageLayout
++        title="Dashboard"
++        titleBarTitle="RitualScore"
++        primaryAction={PRIMARY_ACTION}
++      >
++        <EmptyState
++          heading="Start tracking your beauty routines"
++          description="Create your first routine kit and see its health score instantly."
++          action={{ content: 'Create routine', url: '/rituals/new' }}
++        />
++      </PageLayout>
++    )
++  }
++
++  return (
++    <PageLayout
++      title="Dashboard"
++      titleBarTitle="RitualScore"
++      primaryAction={PRIMARY_ACTION}
++    >
++      <div aria-live="polite" aria-atomic="true">
++        <Layout>
++          <Layout.Section>
++            <KpiCards counts={data.counts} />
++          </Layout.Section>
++          <Layout.Section>
++            <Grid>
++              <Grid.Cell columnSpan={{ xs: 6, lg: 8 }}>
++                <RitualHealthTable rituals={data.worst5} />
++              </Grid.Cell>
++              <Grid.Cell columnSpan={{ xs: 6, lg: 4 }}>
++                <RecentActivity activity={data.recentActivity} />
++              </Grid.Cell>
++            </Grid>
++          </Layout.Section>
++        </Layout>
++      </div>
++    </PageLayout>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Rituals/RitualForm/index.tsx
+
+diff --git a/app/web/src/pages/Rituals/RitualForm/index.tsx b/app/web/src/pages/Rituals/RitualForm/index.tsx
+new file mode 100644
+index 0000000..b2b9c75
+--- /dev/null
++++ b/app/web/src/pages/Rituals/RitualForm/index.tsx
+@@ -0,0 +1,19 @@
++import { Text } from '@shopify/polaris'
++import { useParams } from 'react-router-dom'
++import { PageLayout } from '../../../components/PageLayout'
++
++export function RitualForm() {
++  const { id } = useParams<{ id?: string }>()
++  const isEdit = Boolean(id)
++  const title = isEdit ? 'Edit routine' : 'Create routine'
++
++  return (
++    <PageLayout title={title}>
++      <Text as="p" variant="bodyMd">
++        {isEdit
++          ? "Update an existing kit's products or scoring rules."
++          : 'Define a new kit ΓÇö name, products, and scoring threshold. Changes are saved automatically.'}
++      </Text>
++    </PageLayout>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Rituals/index.tsx
+
+diff --git a/app/web/src/pages/Rituals/index.tsx b/app/web/src/pages/Rituals/index.tsx
+new file mode 100644
+index 0000000..706b2fc
+--- /dev/null
++++ b/app/web/src/pages/Rituals/index.tsx
+@@ -0,0 +1,16 @@
++import { Text } from '@shopify/polaris'
++import { PageLayout } from '../../components/PageLayout'
++
++export function Rituals() {
++  return (
++    <PageLayout
++      title="Routines"
++      primaryAction={{ content: 'Create routine', url: '/rituals/new' }}
++    >
++      <Text as="p" variant="bodyMd">
++        All active routine kits appear here. Create, edit, or archive kits from
++        this list.
++      </Text>
++    </PageLayout>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Settings/index.tsx
+
+diff --git a/app/web/src/pages/Settings/index.tsx b/app/web/src/pages/Settings/index.tsx
+new file mode 100644
+index 0000000..4287eee
+--- /dev/null
++++ b/app/web/src/pages/Settings/index.tsx
+@@ -0,0 +1,12 @@
++import { Text } from '@shopify/polaris'
++import { PageLayout } from '../../components/PageLayout'
++
++export function Settings() {
++  return (
++    <PageLayout title="Settings">
++      <Text as="p" variant="bodyMd">
++        Configure scoring thresholds and notification preferences for your store.
++      </Text>
++    </PageLayout>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/test-setup.ts
+
+diff --git a/app/web/src/test-setup.ts b/app/web/src/test-setup.ts
+new file mode 100644
+index 0000000..44f9274
+--- /dev/null
++++ b/app/web/src/test-setup.ts
+@@ -0,0 +1,13 @@
++Object.defineProperty(window, 'matchMedia', {
++  writable: true,
++  value: (query: string) => ({
++    matches: false,
++    media: query,
++    onchange: null,
++    addListener: () => {},
++    removeListener: () => {},
++    addEventListener: () => {},
++    removeEventListener: () => {},
++    dispatchEvent: () => false,
++  }),
++})
+
+--- /dev/null
++++ b/app/web/src/types/index.ts
+
+diff --git a/app/web/src/types/index.ts b/app/web/src/types/index.ts
+new file mode 100644
+index 0000000..9e8e405
+--- /dev/null
++++ b/app/web/src/types/index.ts
+@@ -0,0 +1,31 @@
++export interface DashboardCounts {
++  total: number
++  healthy: number
++  broken: number
++  unscored: number
++  openAlerts: number
++}
++
++export interface RitualSummary {
++  id: string
++  title: string
++  lastScore: number | null
++  scoreThreshold: number
++  lastScoredAt?: string | Date | null
++  status?: string
++}
++
++export interface ActivityLog {
++  id: string
++  summary: string
++  entityType: string
++  actorType: string
++  createdAt: string | Date
++  afterJson?: unknown
++}
++
++export interface DashboardData {
++  counts: DashboardCounts
++  worst5: RitualSummary[]
++  recentActivity: ActivityLog[]
++}
+
+--- /dev/null
++++ b/app/web/src/utils/formatRelativeTime.ts
+
+diff --git a/app/web/src/utils/formatRelativeTime.ts b/app/web/src/utils/formatRelativeTime.ts
+new file mode 100644
+index 0000000..068b36c
+--- /dev/null
++++ b/app/web/src/utils/formatRelativeTime.ts
+@@ -0,0 +1,13 @@
++export function formatRelativeTime(date: Date): string {
++  const diffMs = Date.now() - date.getTime()
++  const diffSec = Math.floor(diffMs / 1000)
++  const diffMin = Math.floor(diffSec / 60)
++  const diffHr = Math.floor(diffMin / 60)
++  const diffDay = Math.floor(diffHr / 24)
++
++  if (diffSec < 60) return 'just now'
++  if (diffMin < 60) return `${diffMin} min ago`
++  if (diffHr < 24) return `${diffHr} h ago`
++  if (diffDay < 7) return `${diffDay} d ago`
++  return date.toLocaleDateString()
++}
+
+--- /dev/null
++++ b/app/web/src/utils/scoreStatus.ts
+
+diff --git a/app/web/src/utils/scoreStatus.ts b/app/web/src/utils/scoreStatus.ts
+new file mode 100644
+index 0000000..45fa801
+--- /dev/null
++++ b/app/web/src/utils/scoreStatus.ts
+@@ -0,0 +1,11 @@
++export type ScoreStatus = 'not-scored' | 'healthy' | 'at-risk' | 'broken'
++
++export function getScoreStatus(
++  score: number | null,
++  threshold: number,
++): ScoreStatus {
++  if (score === null) return 'not-scored'
++  if (score >= threshold && score >= 80) return 'healthy'
++  if (score >= threshold) return 'at-risk'
++  return 'broken'
++}
+
+--- /dev/null
++++ b/app/web/vitest.config.ts
+
+diff --git a/app/web/vitest.config.ts b/app/web/vitest.config.ts
+new file mode 100644
+index 0000000..dcd82df
+--- /dev/null
++++ b/app/web/vitest.config.ts
+@@ -0,0 +1,11 @@
++import { defineConfig } from 'vitest/config'
++import react from '@vitejs/plugin-react'
++
++export default defineConfig({
++  plugins: [react()],
++  test: {
++    environment: 'jsdom',
++    globals: false,
++    setupFiles: ['./src/test-setup.ts'],
++  },
++})
