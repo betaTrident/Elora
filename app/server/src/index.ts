@@ -1,12 +1,18 @@
 import express from 'express'
-import { config } from 'dotenv'
-import { requireAuth } from './middleware/requireAuth'
+import cors from 'cors'
 import { config as appConfig } from './config'
-
-config()
+import { requireAuth } from './middleware/requireAuth'
+import { errorHandler } from './middleware/errorHandler'
+import dashboardRouter from './routes/dashboard'
+import ritualsRouter from './routes/rituals'
+import scoresRouter from './routes/scores'
+import alertsRouter from './routes/alerts'
+import activityRouter from './routes/activity'
+import settingsRouter from './routes/settings'
+import webhooksRouter from './routes/webhooks'
 
 export const app = express()
-app.use(express.json())
+app.use(cors())
 
 app.use((_req, res, next) => {
   res.setHeader(
@@ -16,10 +22,22 @@ app.use((_req, res, next) => {
   next()
 })
 
+app.use('/webhooks', express.raw({ type: '*/*' }), webhooksRouter)
+app.use(express.json())
+
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
 app.use('/api', requireAuth)
 app.get('/api/ping', (req, res) => res.json({ shop: req.shop.shopDomain }))
+
+app.use('/api/dashboard', dashboardRouter)
+app.use('/api/rituals', ritualsRouter)
+app.use('/api/scores', scoresRouter)
+app.use('/api/alerts', alertsRouter)
+app.use('/api/activity', activityRouter)
+app.use('/api/settings', settingsRouter)
+
+app.use(errorHandler)
 
 if (process.env.VITEST !== 'true' && process.env.NODE_ENV !== 'test') {
   app.listen(appConfig.port, () => {

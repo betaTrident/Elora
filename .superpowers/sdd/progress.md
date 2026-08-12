@@ -20,4 +20,12 @@
 - Task 3: complete (no commits; review approved after dotenv fix)
   - HS256 session token, requireAuth, GET /api/ping, App Bridge CDN + Polaris shell
   - Vitest 4/4: missing token 401, invalid JWT 401, valid ping 200, public /health
-  - Live Admin install still needs Partner login + `shopify app dev`
+  - Live Admin install confirmed: shop row + ping in Admin iframe
+
+## Phase 4 — Backend API Core
+
+- Task 4: complete (no commits; review approved after PUT 404 test)
+  - 13 mock API routes + webhook HMAC stub, Zod, errorHandler
+  - Vitest 27/27 (ping 4 + api 23); tsc + eslint pass
+  - Review: Approved (Important PUT `/api/rituals/missing` 404 test added)
+  - Minor (deferred): errorHandler 500 missing `return`; `void next`; thin success-path coverage; `listRituals` ignores `?status=`

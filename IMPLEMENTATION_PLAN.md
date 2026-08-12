@@ -52,7 +52,7 @@ Repo folder: `elora/`. Theme shop name in `settings_schema.json` / locales: Elor
 | 1 — Project Scaffold & Tooling | **DONE** |
 | 2 — Database Schema & Migrations | **DONE** |
 | 3 — Shopify OAuth & Embedded Auth | **DONE** |
-| 4 — Backend API Core | NOT STARTED |
+| 4 — Backend API Core | **DONE** |
 | 5 — Frontend Shell (Vite + Polaris) | NOT STARTED |
 | 6 — Dashboard Page & KPIs | NOT STARTED |
 | 7 — Ritual CRUD | NOT STARTED |
@@ -853,7 +853,7 @@ shopify app dev              # starts CLI + tunnel + opens in dev store
 
 ## Phase 4 — Backend API Core
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Goal
 All route modules wired, error handling central, Zod validation on all inputs.
@@ -990,7 +990,7 @@ export default router
 
 ---
 
-**End of Phase 4 — NOT STARTED**
+**End of Phase 4 — DONE**
 
 ---
 
@@ -2581,5 +2581,5 @@ Use this before submission.
 
 ---
 
-> **Next step:** Phase 0–3 are **DONE**. Continue at **Phase 4 — Backend API Core**.
+> **Next step:** Phase 0–4 are **DONE**. Continue at **Phase 5 — Frontend Shell (Vite + Polaris)**.
 > Update the Phase progress table and each phase **Status** / **End of Phase** line as work completes.
