@@ -1,0 +1,20 @@
+{
+  "name": "ritualscore-web",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19",
+    "react-dom": "^19",
+    "react-router-dom": "^6",
+    "@shopify/polaris": "^13",
+    "@shopify/app-bridge-react": "latest"
+  },
+  "devDependencies": {
+    "vite": "^5",
+    "@vitejs/plugin-react": "^4",
+    "typescript": "^5"
+  }
+}

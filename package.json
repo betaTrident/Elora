@@ -1,0 +1,11 @@
+{
+  "name": "elora",
+  "private": true,
+  "workspaces": [
+    "app/server",
+    "app/web"
+  ],
+  "scripts": {
+    "lint": "npm run lint -w ritualscore-server"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "ritualscore-server",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "test": "vitest",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "express": "^4",
+    "drizzle-orm": "^0.36",
+    "mysql2": "^3",
+    "zod": "^3",
+    "jsonwebtoken": "^9",
+    "@shopify/shopify-api": "latest",
+    "dotenv": "^16",
+    "cors": "^2"
+  },
+  "devDependencies": {
+    "tsx": "^4",
+    "typescript": "^5",
+    "drizzle-kit": "^0.27",
+    "vitest": "^2",
+    "supertest": "^7",
+    "@types/express": "*",
+    "@types/jsonwebtoken": "*",
+    "@types/cors": "*",
+    "eslint": "^9",
+    "@types/node": "*",
+    "@eslint/js": "*",
+    "typescript-eslint": "*"
+  }
+}

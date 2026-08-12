@@ -1,0 +1,14 @@
+name = "RitualScore"
+client_id = "<SHOPIFY_API_KEY>"
+application_url = "https://<tunnel-url>"
+embedded = true
+
+[access_scopes]
+scopes = "read_products,read_inventory"
+
+[webhooks]
+api_version = "2025-01"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled"]
+  uri = "/webhooks/app/uninstalled"
