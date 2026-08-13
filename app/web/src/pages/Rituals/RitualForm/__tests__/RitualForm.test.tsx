@@ -21,12 +21,44 @@ vi.mock('@shopify/app-bridge-react', () => ({
 import { RitualForm } from '../index'
 import { api } from '../../../../services/api'
 
+const mockGet = api.get as ReturnType<typeof vi.fn>
 const mockPost = api.post as ReturnType<typeof vi.fn>
 const mockPut = api.put as ReturnType<typeof vi.fn>
 
-function Wrapper({ children }: { children: ReactNode }) {
+const sampleBreakdown = {
+  availability: 40,
+  availabilityMax: 50,
+  completeness: 15,
+  completenessMax: 20,
+  margin: 20,
+  marginMax: 30,
+  total: 75,
+  factors: [],
+}
+
+const sampleSaveResponse = {
+  id: 'ritual-1',
+  score: 75,
+  breakdown: sampleBreakdown,
+  threshold: 70,
+}
+
+function NewWrapper({ children }: { children: ReactNode }) {
   return (
     <MemoryRouter initialEntries={['/rituals/new']}>
+      <AppProvider i18n={enTranslations}>
+        <Routes>
+          <Route path="/rituals/new" element={children} />
+          <Route path="/rituals/:id/edit" element={children} />
+        </Routes>
+      </AppProvider>
+    </MemoryRouter>
+  )
+}
+
+function EditWrapper({ children }: { children: ReactNode }) {
+  return (
+    <MemoryRouter initialEntries={['/rituals/ritual-1/edit']}>
       <AppProvider i18n={enTranslations}>
         <Routes>
           <Route path="/rituals/new" element={children} />
@@ -51,7 +83,7 @@ describe('RitualForm', () => {
 
   it('does not POST when submitting without components', async () => {
     const user = userEvent.setup()
-    render(<RitualForm />, { wrapper: Wrapper })
+    render(<RitualForm />, { wrapper: NewWrapper })
 
     await user.type(screen.getByLabelText('Routine title'), 'Morning kit')
     await user.click(screen.getByRole('button', { name: 'Save' }))
@@ -59,5 +91,67 @@ describe('RitualForm', () => {
     expect(mockPost).not.toHaveBeenCalled()
     expect(mockPut).not.toHaveBeenCalled()
     expect(await screen.findByText(/add at least one product/i)).toBeTruthy()
+  })
+
+  it('shows three breakdown labels after successful save with breakdown', async () => {
+    const user = userEvent.setup()
+    mockGet.mockResolvedValueOnce({
+      id: 'ritual-1',
+      title: 'Morning kit',
+      description: '',
+      scoreThreshold: 70,
+      status: 'active',
+      lastScore: 75,
+      components: [
+        {
+          shopifyProductId: 'p1',
+          role: 'cleanse',
+          quantity: 1,
+          productTitleCache: 'Cleanser',
+        },
+      ],
+    })
+    mockPut.mockResolvedValueOnce(sampleSaveResponse)
+
+    render(<RitualForm />, { wrapper: EditWrapper })
+
+    await screen.findByDisplayValue('Morning kit')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText(/Availability — 40\/50/)).toBeTruthy()
+    expect(screen.getByText(/Completeness — 15\/20/)).toBeTruthy()
+    expect(screen.getByText(/Margin — 20\/30/)).toBeTruthy()
+  })
+
+  it('shows Recalculate on edit form and POSTs recalculate endpoint', async () => {
+    const user = userEvent.setup()
+    mockGet.mockResolvedValueOnce({
+      id: 'ritual-1',
+      title: 'Morning kit',
+      description: '',
+      scoreThreshold: 70,
+      status: 'active',
+      lastScore: 75,
+      components: [
+        {
+          shopifyProductId: 'p1',
+          role: 'cleanse',
+          quantity: 1,
+          productTitleCache: 'Cleanser',
+        },
+      ],
+    })
+    mockPost.mockResolvedValueOnce({
+      score: 80,
+      breakdown: sampleBreakdown,
+    })
+
+    render(<RitualForm />, { wrapper: EditWrapper })
+
+    const recalculateButtons = await screen.findAllByRole('button', { name: 'Recalculate' })
+    await user.click(recalculateButtons[0])
+
+    expect(mockPost).toHaveBeenCalledWith('/api/rituals/ritual-1/recalculate', undefined)
+    expect(await screen.findByText(/Availability — 40\/50/)).toBeTruthy()
   })
 })

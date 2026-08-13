@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Banner, Grid, Layout, SkeletonBodyText, SkeletonPage } from '@shopify/polaris'
+import { Banner, BlockStack, Grid, Layout, SkeletonBodyText, SkeletonPage } from '@shopify/polaris'
 import { PageLayout } from '../../components/PageLayout'
 import { EmptyState } from '../../components/EmptyState'
-import type { DashboardData } from '../../types'
+import { AlertBanner } from '../../components/AlertBanner'
+import type { Alert, DashboardData } from '../../types'
 import { api } from '../../services/api'
 import { KpiCards } from './KpiCards'
 import { RitualHealthTable } from './RitualHealthTable'
@@ -12,10 +13,22 @@ const PRIMARY_ACTION = { content: 'Create routine', url: '/rituals/new' }
 
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
+  const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const [alertsError, setAlertsError] = useState<Error | null>(null)
 
-  function fetchData() {
+  function fetchAlerts() {
+    setAlertsError(null)
+    api
+      .get<Alert[]>('/api/alerts')
+      .then((openAlerts) => setAlerts(openAlerts))
+      .catch((e: unknown) =>
+        setAlertsError(e instanceof Error ? e : new Error(String(e))),
+      )
+  }
+
+  function fetchDashboard() {
     setLoading(true)
     setError(null)
     api
@@ -28,7 +41,8 @@ export function Dashboard() {
   }
 
   useEffect(() => {
-    fetchData()
+    fetchDashboard()
+    fetchAlerts()
   }, [])
 
   if (loading) {
@@ -89,21 +103,33 @@ export function Dashboard() {
       primaryAction={PRIMARY_ACTION}
     >
       <div aria-live="polite" aria-atomic="true">
-        <Layout>
-          <Layout.Section>
-            <KpiCards counts={data.counts} />
-          </Layout.Section>
-          <Layout.Section>
-            <Grid>
-              <Grid.Cell columnSpan={{ xs: 6, lg: 8 }}>
-                <RitualHealthTable rituals={data.worst5} />
-              </Grid.Cell>
-              <Grid.Cell columnSpan={{ xs: 6, lg: 4 }}>
-                <RecentActivity activity={data.recentActivity} />
-              </Grid.Cell>
-            </Grid>
-          </Layout.Section>
-        </Layout>
+        <BlockStack gap="400">
+          {alertsError && (
+            <Banner
+              tone="critical"
+              title="Alerts failed to load"
+              action={{ content: 'Retry', onAction: () => fetchAlerts() }}
+            >
+              <p>{alertsError.message}</p>
+            </Banner>
+          )}
+          <AlertBanner alerts={alerts} />
+          <Layout>
+            <Layout.Section>
+              <KpiCards counts={data.counts} />
+            </Layout.Section>
+            <Layout.Section>
+              <Grid>
+                <Grid.Cell columnSpan={{ xs: 6, lg: 8 }}>
+                  <RitualHealthTable rituals={data.worst5} />
+                </Grid.Cell>
+                <Grid.Cell columnSpan={{ xs: 6, lg: 4 }}>
+                  <RecentActivity activity={data.recentActivity} />
+                </Grid.Cell>
+              </Grid>
+            </Layout.Section>
+          </Layout>
+        </BlockStack>
       </div>
     </PageLayout>
   )

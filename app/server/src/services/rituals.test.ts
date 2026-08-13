@@ -22,6 +22,10 @@ vi.mock('../shopify/graphql', () => ({
   ]),
 }))
 
+vi.mock('./alerts', () => ({
+  upsertAlerts: vi.fn().mockResolvedValue(undefined),
+}))
+
 import {
   createRitual,
   getRitual,
@@ -31,6 +35,7 @@ import {
   recalculateRitual,
 } from './rituals'
 import { fetchInventory } from '../shopify/graphql'
+import { upsertAlerts } from './alerts'
 
 const SHOP = { shopDomain: 'test.myshopify.com', shopId: 'shop-1', userId: 'user-1' }
 
@@ -97,6 +102,13 @@ describe('rituals service', () => {
     expect(result.breakdown).toBeDefined()
     expect(mockInsert).toHaveBeenCalled()
     expect(fetchInventory).toHaveBeenCalled()
+    expect(upsertAlerts).toHaveBeenCalledWith(
+      SHOP.shopId,
+      result.id,
+      result.score,
+      result.threshold,
+      result.breakdown,
+    )
   })
 
   it('createRitual persists and scores with empty inventory when fetchInventory fails', async () => {
@@ -175,7 +187,9 @@ describe('rituals service', () => {
   })
 
   it('recalculateRitual logs ritual.recalculated with a routine summary', async () => {
-    const ritualQuery = createThenableChain([{ id: 'ritual-1', title: 'Morning Glow', shopId: 'shop-1' }])
+    const ritualQuery = createThenableChain([
+      { id: 'ritual-1', title: 'Morning Glow', shopId: 'shop-1', scoreThreshold: 70 },
+    ])
     const componentsQuery = createThenableChain([
       {
         id: 'c1',
@@ -202,6 +216,13 @@ describe('rituals service', () => {
         summary: 'Recalculated routine "Morning Glow"',
         afterJson: expect.objectContaining({ score: expect.any(Number) }),
       }),
+    )
+    expect(upsertAlerts).toHaveBeenCalledWith(
+      SHOP.shopId,
+      'ritual-1',
+      result.score,
+      70,
+      result.breakdown,
     )
   })
 })

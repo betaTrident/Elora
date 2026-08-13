@@ -54,7 +54,11 @@ describe('Dashboard', () => {
   })
 
   it('shows empty state heading when counts.total === 0', async () => {
-    mockGet.mockResolvedValueOnce(emptyData)
+    mockGet.mockImplementation((path: string) => {
+      if (path === '/api/dashboard') return Promise.resolve(emptyData)
+      if (path === '/api/alerts') return Promise.resolve([])
+      return Promise.reject(new Error(`unexpected path: ${path}`))
+    })
     render(<Dashboard />, { wrapper: Wrapper })
     const heading = await screen.findByText('Start tracking your beauty routines')
     expect(heading).toBeTruthy()
@@ -68,11 +72,48 @@ describe('Dashboard', () => {
   })
 
   it('renders KPI labels when data is present', async () => {
-    mockGet.mockResolvedValueOnce(fullData)
+    mockGet.mockImplementation((path: string) => {
+      if (path === '/api/dashboard') return Promise.resolve(fullData)
+      if (path === '/api/alerts') return Promise.resolve([])
+      return Promise.reject(new Error(`unexpected path: ${path}`))
+    })
     render(<Dashboard />, { wrapper: Wrapper })
     expect(await screen.findByText('Total routines')).toBeTruthy()
     expect(screen.getByText('Healthy')).toBeTruthy()
     expect(screen.getByText('At risk / Broken')).toBeTruthy()
     expect(screen.getByText('Open alerts')).toBeTruthy()
+  })
+
+  it('shows alert message when /api/alerts returns an open alert', async () => {
+    const alertMessage = 'Routine score 45 is below threshold 70'
+    mockGet.mockImplementation((path: string) => {
+      if (path === '/api/dashboard') return Promise.resolve(fullData)
+      if (path === '/api/alerts')
+        return Promise.resolve([
+          {
+            id: 'a1',
+            ritualId: 'r1',
+            type: 'low_score',
+            severity: 'warning',
+            message: alertMessage,
+            status: 'open',
+            createdAt: new Date().toISOString(),
+          },
+        ])
+      return Promise.reject(new Error(`unexpected path: ${path}`))
+    })
+    render(<Dashboard />, { wrapper: Wrapper })
+    expect(await screen.findByText(alertMessage)).toBeTruthy()
+  })
+
+  it('does not show alert message when /api/alerts returns empty array', async () => {
+    mockGet.mockImplementation((path: string) => {
+      if (path === '/api/dashboard') return Promise.resolve(fullData)
+      if (path === '/api/alerts') return Promise.resolve([])
+      return Promise.reject(new Error(`unexpected path: ${path}`))
+    })
+    render(<Dashboard />, { wrapper: Wrapper })
+    await screen.findByText('Total routines')
+    expect(screen.queryByText(/below threshold/i)).toBeNull()
   })
 })

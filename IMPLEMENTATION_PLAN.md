@@ -57,7 +57,7 @@ Repo folder: `elora/`. Theme shop name in `settings_schema.json` / locales: Elor
 | 6 — Dashboard Page & KPIs | **DONE** |
 | 7 — Ritual CRUD | **DONE** |
 | 8 — Activity Log | **DONE** |
-| 9 — Health Score Engine + Alerts | NOT STARTED |
+| 9 — Health Score Engine + Alerts | **DONE** |
 | 10 — Settings Page | NOT STARTED |
 | 11 — Shopify Theme (Elora) | NOT STARTED |
 | 12 — Soft Ritual Builder | NOT STARTED |
@@ -1549,7 +1549,7 @@ export default function ActivityPage() {
 
 ## Phase 9 — Health Score Engine + Alerts
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Goal
 Pure scoring function with full unit test coverage; alerts open/resolve automatically.
@@ -1736,7 +1736,7 @@ describe('calculateHealthScore', () => {
 
 ---
 
-**End of Phase 9 — NOT STARTED**
+**End of Phase 9 — DONE**
 
 ---
 
@@ -2581,5 +2581,5 @@ Use this before submission.
 
 ---
 
-> **Next step:** Phase 0–8 are **DONE**. Continue at **Phase 9 — Health Score Engine + Alerts**.
+> **Next step:** Phase 0–9 are **DONE**. Continue at **Phase 10 — Settings Page**.
 > Update the Phase progress table and each phase **Status** / **End of Phase** line as work completes.

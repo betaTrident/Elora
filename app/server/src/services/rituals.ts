@@ -4,6 +4,7 @@ import { rituals, ritualComponents, shopSettings } from '../db/schema'
 import type { ShopContext } from '../shopify/auth'
 import { calculateHealthScore, type ComponentInput } from './scoring'
 import { logActivity } from './activity'
+import { upsertAlerts } from './alerts'
 import { fetchInventory } from '../shopify/graphql'
 
 export interface RitualComponent {
@@ -152,7 +153,7 @@ export async function createRitual(shop: ShopContext, input: CreateRitualBody) {
     .limit(1)
   const threshold = input.scoreThreshold ?? settings?.defaultThreshold ?? 70
 
-  return db.transaction(async tx => {
+  const result = await db.transaction(async tx => {
     const id = crypto.randomUUID()
     await tx.insert(rituals).values({
       id,
@@ -181,6 +182,9 @@ export async function createRitual(shop: ShopContext, input: CreateRitualBody) {
 
     return { id, score, breakdown, threshold }
   })
+
+  await upsertAlerts(shop.shopId, result.id, result.score, result.threshold, result.breakdown)
+  return result
 }
 
 export async function updateRitual(shop: ShopContext, id: string, input: CreateRitualBody) {
@@ -196,7 +200,7 @@ export async function updateRitual(shop: ShopContext, id: string, input: CreateR
 
   const threshold = input.scoreThreshold ?? existing.scoreThreshold
 
-  return db.transaction(async tx => {
+  const result = await db.transaction(async tx => {
     await tx
       .update(rituals)
       .set({
@@ -227,6 +231,9 @@ export async function updateRitual(shop: ShopContext, id: string, input: CreateR
 
     return { id, score, breakdown, threshold }
   })
+
+  await upsertAlerts(shop.shopId, result.id, result.score, result.threshold, result.breakdown)
+  return result
 }
 
 export async function archiveRitual(shop: ShopContext, id: string) {
@@ -292,6 +299,8 @@ export async function recalculateRitual(shop: ShopContext, id: string) {
     summary: `Recalculated routine "${ritual.title}"`,
     afterJson: { score },
   })
+
+  await upsertAlerts(shop.shopId, id, score, ritual.scoreThreshold ?? 70, breakdown)
 
   return { score, breakdown }
 }

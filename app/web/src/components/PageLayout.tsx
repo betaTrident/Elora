@@ -8,13 +8,24 @@ interface PageLayoutProps {
   titleBarTitle?: string
   children?: ReactNode
   primaryAction?: ComplexAction
+  secondaryActions?: ComplexAction[]
 }
 
-export function PageLayout({ title, titleBarTitle, children, primaryAction }: PageLayoutProps) {
+export function PageLayout({
+  title,
+  titleBarTitle,
+  children,
+  primaryAction,
+  secondaryActions,
+}: PageLayoutProps) {
   return (
     <Frame>
       <TitleBar title={titleBarTitle ?? title} />
-      <Page title={title} primaryAction={primaryAction}>
+      <Page
+        title={title}
+        primaryAction={primaryAction}
+        secondaryActions={secondaryActions}
+      >
         {children}
       </Page>
     </Frame>

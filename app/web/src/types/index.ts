@@ -84,3 +84,18 @@ export interface RitualSaveResponse {
   breakdown: ScoreBreakdown
   threshold: number
 }
+
+export interface RitualRecalculateResponse {
+  score: number
+  breakdown: ScoreBreakdown
+}
+
+export interface Alert {
+  id: string
+  ritualId: string
+  type: string
+  severity: 'critical' | 'warning'
+  message: string
+  status: string
+  createdAt: string | Date
+}

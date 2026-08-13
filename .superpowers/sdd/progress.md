@@ -57,3 +57,11 @@
   - listActivity cap 100 + filters; recalculate logs; Activity page IndexTable expand
   - Server 50/50 tests; web 13/13; tsc pass
   - Minor (deferred): filter SQL assertions; blank expand on archive rows; full-page skeleton on filter refetch
+
+## Phase 9 — Health Score Engine + Alerts
+
+- Task 9: complete (no commits; backend + frontend reviews Approved; whole-phase review Ready to merge)
+  - Backend: `upsertAlerts` by type, `listOpenAlerts` / `resolveAlert`, wired after create/update/recalculate
+  - Frontend: 3-bar ScoreBreakdown after save + Recalculate; edit-only Recalculate; AlertBanner on Dashboard
+  - Server 58/58 tests; web 17/17; tsc pass
+  - Minor (deferred): critical low_score test; resolveAlert no activity log (do before Phase 14); shallow listOpenAlerts shop assert; alert message not refreshed on same type; no HTTP POST resolve test; Dashboard error mock not path-aware; Recalculate error banner reuses save title; create-save navigates before breakdown paints; Recalculate test uses findAllByRole[0]; AlertBanner critical tone untested; Recalculate POST body undefined vs {}; archived rituals keep open alerts; Recalculate badge vs persisted threshold mismatch

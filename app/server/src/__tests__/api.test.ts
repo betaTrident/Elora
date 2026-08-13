@@ -5,6 +5,7 @@ import crypto from 'crypto'
 import type { Express } from 'express'
 import * as ritualsService from '../services/rituals'
 import * as activityService from '../services/activity'
+import * as alertsService from '../services/alerts'
 
 const TEST_API_KEY = 'test-api-key'
 const TEST_SECRET = 'test-secret'
@@ -219,6 +220,29 @@ describe('POST /webhooks/app/uninstalled', () => {
       .send(body)
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ ok: true })
+  })
+})
+
+describe('GET /api/alerts', () => {
+  it('returns 200 array with token', async () => {
+    const rows = [
+      {
+        id: 'alert-1',
+        ritualId: 'ritual-1',
+        type: 'low_score',
+        severity: 'warning',
+        message: 'Routine score 50 is below threshold 70',
+        status: 'open',
+        createdAt: '2026-08-13T00:00:00.000Z',
+      },
+    ]
+    vi.spyOn(alertsService, 'listOpenAlerts').mockResolvedValueOnce(rows as never)
+
+    const res = await authRequest('get', '/api/alerts')
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual(rows)
+    expect(alertsService.listOpenAlerts).toHaveBeenCalledWith('shop-id-1')
   })
 })
 

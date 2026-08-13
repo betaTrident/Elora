@@ -10,9 +10,22 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import { PageLayout } from '../../../components/PageLayout'
 import { ScoreBadge } from '../../../components/ScoreBadge'
-import type { RitualDetail, RitualSaveResponse } from '../../../types'
+import { ScoreBreakdown } from '../../../components/ScoreBreakdown'
+import type {
+  RitualDetail,
+  RitualRecalculateResponse,
+  RitualSaveResponse,
+  ScoreBreakdown as ScoreBreakdownType,
+} from '../../../types'
 import { api } from '../../../services/api'
+import { mapScoreBreakdownToItems } from '../../../utils/mapScoreBreakdown'
 import { ComponentList } from './ComponentList'
+
+interface ScoreDisplay {
+  score: number
+  threshold: number
+  breakdown: ScoreBreakdownType
+}
 
 export function RitualForm() {
   const { id } = useParams<{ id?: string }>()
@@ -26,9 +39,10 @@ export function RitualForm() {
   const [components, setComponents] = useState<RitualDetail['components']>([])
   const [loading, setLoading] = useState(isEdit)
   const [submitting, setSubmitting] = useState(false)
+  const [recalculating, setRecalculating] = useState(false)
   const [loadError, setLoadError] = useState<Error | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
-  const [saveResult, setSaveResult] = useState<RitualSaveResponse | null>(null)
+  const [scoreDisplay, setScoreDisplay] = useState<ScoreDisplay | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -51,7 +65,7 @@ export function RitualForm() {
 
   async function handleSubmit() {
     setValidationError(null)
-    setSaveResult(null)
+    setScoreDisplay(null)
 
     if (components.length === 0) {
       setValidationError('Add at least one product before saving this routine.')
@@ -79,7 +93,11 @@ export function RitualForm() {
         ? await api.put<RitualSaveResponse>(`/api/rituals/${id}`, body)
         : await api.post<RitualSaveResponse>('/api/rituals', body)
 
-      setSaveResult(result)
+      setScoreDisplay({
+        score: result.score,
+        threshold: result.threshold,
+        breakdown: result.breakdown,
+      })
       if (!isEdit) {
         navigate(`/rituals/${result.id}/edit`)
       }
@@ -89,6 +107,30 @@ export function RitualForm() {
       )
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleRecalculate() {
+    if (!id) return
+
+    setRecalculating(true)
+    setValidationError(null)
+    try {
+      const result = await api.post<RitualRecalculateResponse>(
+        `/api/rituals/${id}/recalculate`,
+        undefined,
+      )
+      setScoreDisplay({
+        score: result.score,
+        threshold: Number(scoreThreshold),
+        breakdown: result.breakdown,
+      })
+    } catch (error: unknown) {
+      setValidationError(
+        error instanceof Error ? error.message : 'Failed to recalculate score.',
+      )
+    } finally {
+      setRecalculating(false)
     }
   }
 
@@ -128,19 +170,33 @@ export function RitualForm() {
         onAction: () => void handleSubmit(),
         loading: submitting,
       }}
+      secondaryActions={
+        isEdit
+          ? [
+              {
+                content: 'Recalculate',
+                onAction: () => void handleRecalculate(),
+                loading: recalculating,
+              },
+            ]
+          : undefined
+      }
     >
       <div aria-live="polite" aria-atomic="true">
         <BlockStack gap="400">
-          {saveResult && (
-            <Banner tone="success" title="Routine saved">
+          {scoreDisplay && (
+            <Banner tone="success" title="Health score updated">
               <BlockStack gap="200">
                 <p>
                   Health score:{' '}
                   <ScoreBadge
-                    score={saveResult.score}
-                    threshold={saveResult.threshold}
+                    score={scoreDisplay.score}
+                    threshold={scoreDisplay.threshold}
                   />
                 </p>
+                <ScoreBreakdown
+                  breakdown={mapScoreBreakdownToItems(scoreDisplay.breakdown)}
+                />
               </BlockStack>
             </Banner>
           )}

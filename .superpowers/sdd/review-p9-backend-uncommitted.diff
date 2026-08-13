@@ -1,0 +1,748 @@
+﻿# Task 9 backend review package
+# Base: uncommitted working tree (no commits this task)
+# Head: working tree
+# Files: alerts service/tests, routes/alerts, rituals wiring, api.test.ts
+
+## git log --oneline -8
+
+986473f implemented p7-p8 6306dce p5-6 implemented frontend. 1df38f3 p4-done af1ca7b p3-implemented-shopify-auth ce2a1a6 update implementation plan audit done phases f910a10 p2-implemented 126de4a Agentic Workflow Setup 3b9fe10 first commit
+
+## git diff --stat
+
+ app/server/src/__tests__/api.test.ts    |  24 ++++  app/server/src/routes/alerts.ts         |   9 +-  app/server/src/services/alerts.test.ts  | 247 ++++++++++++++++++++++++++++++++  app/server/src/services/alerts.ts       | 138 ++++++++++++++++++  app/server/src/services/rituals.test.ts |  23 ++-  app/server/src/services/rituals.ts      |  13 +-  6 files changed, 448 insertions(+), 6 deletions(-)
+
+## git diff -U10
+
+diff --git a/app/server/src/__tests__/api.test.ts b/app/server/src/__tests__/api.test.ts
+index ef6f37a..7ecabca 100644
+--- a/app/server/src/__tests__/api.test.ts
++++ b/app/server/src/__tests__/api.test.ts
+@@ -1,17 +1,18 @@
+ import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
+ import request from 'supertest'
+ import jwt from 'jsonwebtoken'
+ import crypto from 'crypto'
+ import type { Express } from 'express'
+ import * as ritualsService from '../services/rituals'
+ import * as activityService from '../services/activity'
++import * as alertsService from '../services/alerts'
+ 
+ const TEST_API_KEY = 'test-api-key'
+ const TEST_SECRET = 'test-secret'
+ 
+ const mockLimit = vi.fn()
+ const mockWhere = vi.fn(() => ({ limit: mockLimit }))
+ const mockFrom = vi.fn(() => ({ where: mockWhere }))
+ const mockSelect = vi.fn(() => ({ from: mockFrom }))
+ 
+ vi.mock('../db/client', () => ({
+@@ -215,20 +216,43 @@ describe('POST /webhooks/app/uninstalled', () => {
+     const res = await request(app)
+       .post('/webhooks/app/uninstalled')
+       .set('Content-Type', 'application/json')
+       .set('X-Shopify-Hmac-Sha256', hmac)
+       .send(body)
+     expect(res.status).toBe(200)
+     expect(res.body).toEqual({ ok: true })
+   })
+ })
+ 
++describe('GET /api/alerts', () => {
++  it('returns 200 array with token', async () => {
++    const rows = [
++      {
++        id: 'alert-1',
++        ritualId: 'ritual-1',
++        type: 'low_score',
++        severity: 'warning',
++        message: 'Routine score 50 is below threshold 70',
++        status: 'open',
++        createdAt: '2026-08-13T00:00:00.000Z',
++      },
++    ]
++    vi.spyOn(alertsService, 'listOpenAlerts').mockResolvedValueOnce(rows as never)
++
++    const res = await authRequest('get', '/api/alerts')
++
++    expect(res.status).toBe(200)
++    expect(res.body).toEqual(rows)
++    expect(alertsService.listOpenAlerts).toHaveBeenCalledWith('shop-id-1')
++  })
++})
++
+ describe('GET /api/activity', () => {
+   it('returns 200 array with token', async () => {
+     const rows = [
+       {
+         id: 'a1',
+         summary: 'Created routine "Morning Glow"',
+         action: 'ritual.created',
+         entityType: 'ritual',
+         actorType: 'merchant',
+         createdAt: '2026-08-13T00:00:00.000Z',
+diff --git a/app/server/src/routes/alerts.ts b/app/server/src/routes/alerts.ts
+index 84545e3..d7606f0 100644
+--- a/app/server/src/routes/alerts.ts
++++ b/app/server/src/routes/alerts.ts
+@@ -1,21 +1,24 @@
+ import { Router } from 'express'
++import * as alertsService from '../services/alerts'
+ 
+ const router = Router()
+ 
+-router.get('/', async (_req, res, next) => {
++router.get('/', async (req, res, next) => {
+   try {
+-    res.json([])
++    const openAlerts = await alertsService.listOpenAlerts(req.shop.shopId)
++    res.json(openAlerts)
+   } catch (e) {
+     next(e)
+   }
+ })
+ 
+-router.post('/:id/resolve', async (_req, res, next) => {
++router.post('/:id/resolve', async (req, res, next) => {
+   try {
++    await alertsService.resolveAlert(req.shop.shopId, req.params.id)
+     res.json({ ok: true })
+   } catch (e) {
+     next(e)
+   }
+ })
+ 
+ export default router
+diff --git a/app/server/src/services/alerts.test.ts b/app/server/src/services/alerts.test.ts
+new file mode 100644
+index 0000000..03cc336
+--- /dev/null
++++ b/app/server/src/services/alerts.test.ts
+@@ -0,0 +1,247 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest'
++
++const mockSelect = vi.fn()
++const mockInsert = vi.fn()
++const mockUpdate = vi.fn()
++
++vi.mock('../db/client', () => ({
++  db: {
++    select: (...args: unknown[]) => mockSelect(...args),
++    insert: (...args: unknown[]) => mockInsert(...args),
++    update: (...args: unknown[]) => mockUpdate(...args),
++  },
++}))
++
++vi.mock('./activity', () => ({
++  logActivity: vi.fn(),
++}))
++
++import { upsertAlerts, listOpenAlerts, resolveAlert } from './alerts'
++import { logActivity } from './activity'
++import type { ScoreBreakdown } from './scoring'
++
++function createThenableChain<T>(result: T) {
++  const chain = {
++    from: vi.fn(),
++    where: vi.fn(),
++    orderBy: vi.fn(),
++    limit: vi.fn(),
++    then: (resolve: (value: T) => unknown, reject?: (reason: unknown) => unknown) =>
++      Promise.resolve(result).then(resolve, reject),
++  }
++  chain.from.mockReturnValue(chain)
++  chain.where.mockReturnValue(chain)
++  chain.orderBy.mockReturnValue(chain)
++  chain.limit.mockReturnValue(chain)
++  return chain
++}
++
++function stubInsert() {
++  const valuesFn = vi.fn().mockResolvedValue(undefined)
++  mockInsert.mockReturnValue({ values: valuesFn })
++  return valuesFn
++}
++
++function stubUpdate() {
++  const setFn = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
++  mockUpdate.mockReturnValue({ set: setFn })
++  return setFn
++}
++
++const healthyBreakdown: ScoreBreakdown = {
++  availability: 50,
++  availabilityMax: 50,
++  completeness: 20,
++  completenessMax: 20,
++  margin: 15,
++  marginMax: 30,
++  total: 85,
++  factors: [{ productId: 'p1', available: true, reason: 'In stock' }],
++}
++
++const unavailableBreakdown: ScoreBreakdown = {
++  availability: 0,
++  availabilityMax: 50,
++  completeness: 7,
++  completenessMax: 20,
++  margin: 15,
++  marginMax: 30,
++  total: 22,
++  factors: [{ productId: 'p1', available: false, reason: 'Out of stock' }],
++}
++
++const SHOP_ID = 'shop-1'
++const RITUAL_ID = 'ritual-1'
++
++describe('upsertAlerts', () => {
++  beforeEach(() => {
++    vi.clearAllMocks()
++    stubInsert()
++    stubUpdate()
++  })
++
++  it('opens low_score when score below threshold', async () => {
++    mockSelect.mockReturnValueOnce(createThenableChain([]))
++    const valuesFn = stubInsert()
++
++    await upsertAlerts(SHOP_ID, RITUAL_ID, 50, 70, healthyBreakdown)
++
++    expect(valuesFn).toHaveBeenCalledWith(
++      expect.objectContaining({
++        shopId: SHOP_ID,
++        ritualId: RITUAL_ID,
++        type: 'low_score',
++        severity: 'warning',
++        message: 'Routine score 50 is below threshold 70',
++      }),
++    )
++    expect(logActivity).toHaveBeenCalledWith(
++      expect.anything(),
++      expect.objectContaining({
++        shopId: SHOP_ID,
++        actorType: 'system',
++        action: 'alert.opened',
++        entityType: 'alert',
++        summary: 'Routine score 50 is below threshold 70',
++      }),
++    )
++  })
++
++  it('opens component_unavailable when a factor is unavailable', async () => {
++    mockSelect.mockReturnValueOnce(createThenableChain([]))
++    const valuesFn = stubInsert()
++
++    await upsertAlerts(SHOP_ID, RITUAL_ID, 80, 70, unavailableBreakdown)
++
++    expect(valuesFn).toHaveBeenCalledWith(
++      expect.objectContaining({
++        shopId: SHOP_ID,
++        ritualId: RITUAL_ID,
++        type: 'component_unavailable',
++        severity: 'critical',
++        message: 'Product p1: Out of stock',
++      }),
++    )
++  })
++
++  it('resolves when the issue is gone', async () => {
++    const openAlert = {
++      id: 'alert-1',
++      shopId: SHOP_ID,
++      ritualId: RITUAL_ID,
++      type: 'low_score' as const,
++      severity: 'warning' as const,
++      message: 'Routine score 50 is below threshold 70',
++      status: 'open' as const,
++    }
++    mockSelect.mockReturnValueOnce(createThenableChain([openAlert]))
++    const setFn = stubUpdate()
++
++    await upsertAlerts(SHOP_ID, RITUAL_ID, 85, 70, healthyBreakdown)
++
++    expect(setFn).toHaveBeenCalledWith(
++      expect.objectContaining({
++        status: 'resolved',
++        resolvedAt: expect.any(Date),
++      }),
++    )
++    expect(logActivity).toHaveBeenCalledWith(
++      expect.anything(),
++      expect.objectContaining({
++        shopId: SHOP_ID,
++        actorType: 'system',
++        action: 'alert.resolved',
++        entityType: 'alert',
++        entityId: 'alert-1',
++        summary: 'Alert resolved: Routine score 50 is below threshold 70',
++      }),
++    )
++  })
++
++  it('does not insert a duplicate open alert of the same type', async () => {
++    const valuesFn = stubInsert()
++
++    mockSelect.mockReturnValueOnce(createThenableChain([]))
++    await upsertAlerts(SHOP_ID, RITUAL_ID, 50, 70, healthyBreakdown)
++
++    expect(valuesFn).toHaveBeenCalledTimes(1)
++    const inserted = valuesFn.mock.calls[0][0] as { id: string; type: string }
++
++    valuesFn.mockClear()
++    mockSelect.mockReturnValueOnce(
++      createThenableChain([
++        {
++          id: inserted.id,
++          shopId: SHOP_ID,
++          ritualId: RITUAL_ID,
++          type: 'low_score',
++          status: 'open',
++          message: 'Routine score 50 is below threshold 70',
++        },
++      ]),
++    )
++
++    await upsertAlerts(SHOP_ID, RITUAL_ID, 50, 70, healthyBreakdown)
++
++    expect(valuesFn).not.toHaveBeenCalled()
++  })
++})
++
++describe('listOpenAlerts', () => {
++  beforeEach(() => {
++    vi.clearAllMocks()
++  })
++
++  it("returns only that shop's open rows", async () => {
++    const rows = [
++      {
++        id: 'a1',
++        ritualId: RITUAL_ID,
++        type: 'low_score',
++        severity: 'warning',
++        message: 'Routine score 50 is below threshold 70',
++        status: 'open',
++        createdAt: new Date('2026-08-13T00:00:00.000Z'),
++      },
++    ]
++    const query = createThenableChain(rows)
++    mockSelect.mockReturnValueOnce(query)
++
++    const result = await listOpenAlerts(SHOP_ID)
++
++    expect(query.where).toHaveBeenCalled()
++    expect(query.orderBy).toHaveBeenCalled()
++    expect(result).toEqual(rows)
++    expect(result.every(row => row.status === 'open')).toBe(true)
++  })
++})
++
++describe('resolveAlert', () => {
++  beforeEach(() => {
++    vi.clearAllMocks()
++  })
++
++  it('marks resolved', async () => {
++    const query = createThenableChain([
++      { id: 'alert-1', shopId: SHOP_ID, status: 'open' },
++    ])
++    mockSelect.mockReturnValueOnce(query)
++    const setFn = stubUpdate()
++
++    await resolveAlert(SHOP_ID, 'alert-1')
++
++    expect(query.where).toHaveBeenCalled()
++    expect(setFn).toHaveBeenCalledWith(
++      expect.objectContaining({
++        status: 'resolved',
++        resolvedAt: expect.any(Date),
++      }),
++    )
++  })
++
++  it('throws 404 when missing', async () => {
++    mockSelect.mockReturnValueOnce(createThenableChain([]))
++
++    await expect(resolveAlert(SHOP_ID, 'missing-id')).rejects.toMatchObject({ status: 404 })
++  })
++})
+diff --git a/app/server/src/services/alerts.ts b/app/server/src/services/alerts.ts
+new file mode 100644
+index 0000000..bd4e0be
+--- /dev/null
++++ b/app/server/src/services/alerts.ts
+@@ -0,0 +1,138 @@
++import { and, desc, eq } from 'drizzle-orm'
++import { db } from '../db/client'
++import { alerts } from '../db/schema'
++import type { ScoreBreakdown } from './scoring'
++import { logActivity } from './activity'
++
++type AlertType = 'low_score' | 'component_unavailable'
++type AlertSeverity = 'warning' | 'critical'
++
++interface AlertIssue {
++  type: AlertType
++  message: string
++  severity: AlertSeverity
++}
++
++function notFound(): never {
++  throw Object.assign(new Error('Not found'), { status: 404 })
++}
++
++function collectIssues(
++  score: number,
++  threshold: number,
++  breakdown: ScoreBreakdown,
++): AlertIssue[] {
++  const issues: AlertIssue[] = []
++
++  if (score < threshold) {
++    issues.push({
++      type: 'low_score',
++      message: `Routine score ${score} is below threshold ${threshold}`,
++      severity: score < threshold * 0.5 ? 'critical' : 'warning',
++    })
++  }
++
++  const unavailable = breakdown.factors.filter(f => !f.available)
++  unavailable.forEach(f => {
++    issues.push({
++      type: 'component_unavailable',
++      message: `Product ${f.productId}: ${f.reason}`,
++      severity: 'critical',
++    })
++  })
++
++  return issues
++}
++
++function uniqueByType(issues: AlertIssue[]): AlertIssue[] {
++  const seen = new Set<AlertType>()
++  const unique: AlertIssue[] = []
++  for (const issue of issues) {
++    if (seen.has(issue.type)) continue
++    seen.add(issue.type)
++    unique.push(issue)
++  }
++  return unique
++}
++
++export async function upsertAlerts(
++  shopId: string,
++  ritualId: string,
++  score: number,
++  threshold: number,
++  breakdown: ScoreBreakdown,
++): Promise<void> {
++  const issues = uniqueByType(collectIssues(score, threshold, breakdown))
++
++  const existing = await db
++    .select()
++    .from(alerts)
++    .where(and(eq(alerts.shopId, shopId), eq(alerts.ritualId, ritualId), eq(alerts.status, 'open')))
++
++  for (const existingAlert of existing) {
++    const stillNeeded = issues.some(i => i.type === existingAlert.type)
++    if (!stillNeeded) {
++      await db
++        .update(alerts)
++        .set({ status: 'resolved', resolvedAt: new Date() })
++        .where(eq(alerts.id, existingAlert.id))
++      await logActivity(db, {
++        shopId,
++        actorType: 'system',
++        action: 'alert.resolved',
++        entityType: 'alert',
++        entityId: existingAlert.id,
++        summary: `Alert resolved: ${existingAlert.message}`,
++      })
++    }
++  }
++
++  for (const issue of issues) {
++    const alreadyOpen = existing.find(a => a.type === issue.type && a.status === 'open')
++    if (!alreadyOpen) {
++      const id = crypto.randomUUID()
++      await db.insert(alerts).values({ id, shopId, ritualId, ...issue })
++      await logActivity(db, {
++        shopId,
++        actorType: 'system',
++        action: 'alert.opened',
++        entityType: 'alert',
++        entityId: id,
++        summary: issue.message,
++      })
++    }
++  }
++}
++
++export async function listOpenAlerts(shopId: string) {
++  return db
++    .select({
++      id: alerts.id,
++      ritualId: alerts.ritualId,
++      type: alerts.type,
++      severity: alerts.severity,
++      message: alerts.message,
++      status: alerts.status,
++      createdAt: alerts.createdAt,
++    })
++    .from(alerts)
++    .where(and(eq(alerts.shopId, shopId), eq(alerts.status, 'open')))
++    .orderBy(desc(alerts.createdAt))
++}
++
++export async function resolveAlert(shopId: string, id: string) {
++  const [existing] = await db
++    .select()
++    .from(alerts)
++    .where(and(eq(alerts.shopId, shopId), eq(alerts.id, id)))
++    .limit(1)
++
++  if (!existing) {
++    notFound()
++  }
++
++  await db
++    .update(alerts)
++    .set({ status: 'resolved', resolvedAt: new Date() })
++    .where(and(eq(alerts.id, id), eq(alerts.shopId, shopId)))
++}
+diff --git a/app/server/src/services/rituals.test.ts b/app/server/src/services/rituals.test.ts
+index 17b584d..7ee76fe 100644
+--- a/app/server/src/services/rituals.test.ts
++++ b/app/server/src/services/rituals.test.ts
+@@ -15,29 +15,34 @@ vi.mock('../db/client', () => ({
+     transaction: (...args: unknown[]) => mockTransaction(...args),
+   },
+ }))
+ 
+ vi.mock('../shopify/graphql', () => ({
+   fetchInventory: vi.fn(async () => [
+     { productId: 'gid://shopify/Product/123', available: 10, status: 'ACTIVE' as const, price: '25.00' },
+   ]),
+ }))
+ 
++vi.mock('./alerts', () => ({
++  upsertAlerts: vi.fn().mockResolvedValue(undefined),
++}))
++
+ import {
+   createRitual,
+   getRitual,
+   updateRitual,
+   archiveRitual,
+   listRituals,
+   recalculateRitual,
+ } from './rituals'
+ import { fetchInventory } from '../shopify/graphql'
++import { upsertAlerts } from './alerts'
+ 
+ const SHOP = { shopDomain: 'test.myshopify.com', shopId: 'shop-1', userId: 'user-1' }
+ 
+ function createThenableChain<T>(result: T) {
+   const chain = {
+     from: vi.fn(),
+     where: vi.fn(),
+     orderBy: vi.fn(),
+     limit: vi.fn(),
+     then: (resolve: (value: T) => unknown, reject?: (reason: unknown) => unknown) =>
+@@ -90,20 +95,27 @@ describe('rituals service', () => {
+     stubUpdate()
+ 
+     const result = await createRitual(SHOP, validBody)
+ 
+     expect(result.id).toMatch(/^[0-9a-f-]{36}$/i)
+     expect(result.score).toBeGreaterThan(0)
+     expect(result.threshold).toBe(70)
+     expect(result.breakdown).toBeDefined()
+     expect(mockInsert).toHaveBeenCalled()
+     expect(fetchInventory).toHaveBeenCalled()
++    expect(upsertAlerts).toHaveBeenCalledWith(
++      SHOP.shopId,
++      result.id,
++      result.score,
++      result.threshold,
++      result.breakdown,
++    )
+   })
+ 
+   it('createRitual persists and scores with empty inventory when fetchInventory fails', async () => {
+     vi.mocked(fetchInventory).mockRejectedValueOnce(new Error('GraphQL error'))
+     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+ 
+     const settingsQuery = createThenableChain([{ defaultThreshold: 70 }])
+     mockSelect.mockReturnValueOnce(settingsQuery)
+     stubInsert()
+     stubUpdate()
+@@ -168,21 +180,23 @@ describe('rituals service', () => {
+   })
+ 
+   it('updateRitual returns 404 when ritual is missing', async () => {
+     const ritualQuery = createThenableChain([])
+     mockSelect.mockReturnValueOnce(ritualQuery)
+ 
+     await expect(updateRitual(SHOP, 'missing-id', validBody)).rejects.toMatchObject({ status: 404 })
+   })
+ 
+   it('recalculateRitual logs ritual.recalculated with a routine summary', async () => {
+-    const ritualQuery = createThenableChain([{ id: 'ritual-1', title: 'Morning Glow', shopId: 'shop-1' }])
++    const ritualQuery = createThenableChain([
++      { id: 'ritual-1', title: 'Morning Glow', shopId: 'shop-1', scoreThreshold: 70 },
++    ])
+     const componentsQuery = createThenableChain([
+       {
+         id: 'c1',
+         ritualId: 'ritual-1',
+         shopifyProductId: 'gid://shopify/Product/123',
+         shopifyVariantId: null,
+         role: 'cleanse',
+         quantity: 1,
+         unitCost: null,
+         sortOrder: 0,
+@@ -196,12 +210,19 @@ describe('rituals service', () => {
+     const result = await recalculateRitual(SHOP, 'ritual-1')
+ 
+     expect(result.score).toBeGreaterThan(0)
+     expect(valuesFn).toHaveBeenCalledWith(
+       expect.objectContaining({
+         action: 'ritual.recalculated',
+         summary: 'Recalculated routine "Morning Glow"',
+         afterJson: expect.objectContaining({ score: expect.any(Number) }),
+       }),
+     )
++    expect(upsertAlerts).toHaveBeenCalledWith(
++      SHOP.shopId,
++      'ritual-1',
++      result.score,
++      70,
++      result.breakdown,
++    )
+   })
+ })
+diff --git a/app/server/src/services/rituals.ts b/app/server/src/services/rituals.ts
+index e9f3b9e..cdfd112 100644
+--- a/app/server/src/services/rituals.ts
++++ b/app/server/src/services/rituals.ts
+@@ -1,16 +1,17 @@
+ import { eq, and, asc } from 'drizzle-orm'
+ import { db } from '../db/client'
+ import { rituals, ritualComponents, shopSettings } from '../db/schema'
+ import type { ShopContext } from '../shopify/auth'
+ import { calculateHealthScore, type ComponentInput } from './scoring'
+ import { logActivity } from './activity'
++import { upsertAlerts } from './alerts'
+ import { fetchInventory } from '../shopify/graphql'
+ 
+ export interface RitualComponent {
+   shopifyProductId: string
+   shopifyVariantId?: string | null
+   productTitleCache?: string
+   role: 'cleanse' | 'treat' | 'seal' | 'scent'
+   quantity: number
+   unitCost?: number
+   sortOrder: number
+@@ -145,21 +146,21 @@ export async function getRitual(shopId: string, id: string) {
+ }
+ 
+ export async function createRitual(shop: ShopContext, input: CreateRitualBody) {
+   const [settings] = await db
+     .select()
+     .from(shopSettings)
+     .where(eq(shopSettings.shopId, shop.shopId))
+     .limit(1)
+   const threshold = input.scoreThreshold ?? settings?.defaultThreshold ?? 70
+ 
+-  return db.transaction(async tx => {
++  const result = await db.transaction(async tx => {
+     const id = crypto.randomUUID()
+     await tx.insert(rituals).values({
+       id,
+       shopId: shop.shopId,
+       title: input.title,
+       description: input.description ?? null,
+       scoreThreshold: threshold,
+     })
+ 
+     const componentRows = buildComponentRows(id, input.components)
+@@ -174,36 +175,39 @@ export async function createRitual(shop: ShopContext, input: CreateRitualBody) {
+       actorId: shop.userId ?? undefined,
+       action: 'ritual.created',
+       entityType: 'ritual',
+       entityId: id,
+       summary: `Created routine "${input.title}"`,
+       afterJson: { score, threshold },
+     })
+ 
+     return { id, score, breakdown, threshold }
+   })
++
++  await upsertAlerts(shop.shopId, result.id, result.score, result.threshold, result.breakdown)
++  return result
+ }
+ 
+ export async function updateRitual(shop: ShopContext, id: string, input: CreateRitualBody) {
+   const [existing] = await db
+     .select()
+     .from(rituals)
+     .where(and(eq(rituals.shopId, shop.shopId), eq(rituals.id, id)))
+     .limit(1)
+ 
+   if (!existing) {
+     notFound()
+   }
+ 
+   const threshold = input.scoreThreshold ?? existing.scoreThreshold
+ 
+-  return db.transaction(async tx => {
++  const result = await db.transaction(async tx => {
+     await tx
+       .update(rituals)
+       .set({
+         title: input.title,
+         description: input.description ?? null,
+         scoreThreshold: threshold,
+       })
+       .where(eq(rituals.id, id))
+ 
+     await tx.delete(ritualComponents).where(eq(ritualComponents.ritualId, id))
+@@ -220,20 +224,23 @@ export async function updateRitual(shop: ShopContext, id: string, input: CreateR
+       actorId: shop.userId ?? undefined,
+       action: 'ritual.updated',
+       entityType: 'ritual',
+       entityId: id,
+       summary: `Updated routine "${input.title}"`,
+       afterJson: { score, threshold },
+     })
+ 
+     return { id, score, breakdown, threshold }
+   })
++
++  await upsertAlerts(shop.shopId, result.id, result.score, result.threshold, result.breakdown)
++  return result
+ }
+ 
+ export async function archiveRitual(shop: ShopContext, id: string) {
+   const [existing] = await db
+     .select()
+     .from(rituals)
+     .where(and(eq(rituals.shopId, shop.shopId), eq(rituals.id, id)))
+     .limit(1)
+ 
+   if (!existing) {
+@@ -286,12 +293,14 @@ export async function recalculateRitual(shop: ShopContext, id: string) {
+     shopId: shop.shopId,
+     actorType: 'merchant',
+     actorId: shop.userId ?? undefined,
+     action: 'ritual.recalculated',
+     entityType: 'ritual',
+     entityId: id,
+     summary: `Recalculated routine "${ritual.title}"`,
+     afterJson: { score },
+   })
+ 
++  await upsertAlerts(shop.shopId, id, score, ritual.scoreThreshold ?? 70, breakdown)
++
+   return { score, breakdown }
+ }
