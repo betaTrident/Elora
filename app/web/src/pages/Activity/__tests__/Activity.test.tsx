@@ -69,6 +69,13 @@ describe('Activity', () => {
     expect(screen.getByRole('combobox', { name: 'Action' })).toBeTruthy()
   })
 
+  it('includes Settings in the action filter options', async () => {
+    mockGet.mockResolvedValueOnce([])
+    render(<Activity />, { wrapper: Wrapper })
+    await screen.findByText('No activity yet')
+    expect(screen.getByRole('option', { name: 'Settings' })).toBeTruthy()
+  })
+
   it('renders a summary row when logs are present', async () => {
     mockGet.mockResolvedValueOnce([sampleLog])
     render(<Activity />, { wrapper: Wrapper })

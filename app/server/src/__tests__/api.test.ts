@@ -6,6 +6,7 @@ import type { Express } from 'express'
 import * as ritualsService from '../services/rituals'
 import * as activityService from '../services/activity'
 import * as alertsService from '../services/alerts'
+import * as settingsService from '../services/settings'
 
 const TEST_API_KEY = 'test-api-key'
 const TEST_SECRET = 'test-secret'
@@ -101,6 +102,7 @@ describe('requireAuth on API routes', () => {
     { method: 'get', path: '/api/activity' },
     { method: 'get', path: '/api/settings' },
     { method: 'put', path: '/api/settings' },
+    { method: 'post', path: '/api/scores/recalculate-all' },
   ]
 
   it.each(protectedRoutes)('$method $path returns 401 without token', async ({ method, path }) => {
@@ -185,6 +187,16 @@ describe('PUT /api/rituals/:id', () => {
   })
 })
 
+describe('GET /api/settings', () => {
+  it('returns 200 with defaultThreshold from the service', async () => {
+    vi.spyOn(settingsService, 'getSettings').mockResolvedValueOnce({ defaultThreshold: 80 })
+    const res = await authRequest('get', '/api/settings')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ defaultThreshold: 80 })
+    expect(settingsService.getSettings).toHaveBeenCalledWith('shop-id-1')
+  })
+})
+
 describe('PUT /api/settings', () => {
   it('returns 400 when defaultThreshold is out of range', async () => {
     const res = await authRequest('put', '/api/settings').send({ defaultThreshold: 200 })
@@ -193,9 +205,26 @@ describe('PUT /api/settings', () => {
   })
 
   it('returns 200 for valid defaultThreshold', async () => {
+    vi.spyOn(settingsService, 'updateSettings').mockResolvedValueOnce({ defaultThreshold: 75 })
     const res = await authRequest('put', '/api/settings').send({ defaultThreshold: 75 })
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ defaultThreshold: 75 })
+    expect(settingsService.updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ shopId: 'shop-id-1' }),
+      75,
+    )
+  })
+})
+
+describe('POST /api/scores/recalculate-all', () => {
+  it('returns 200 with recalculated count', async () => {
+    vi.spyOn(ritualsService, 'recalculateAllRituals').mockResolvedValueOnce({ recalculated: 3 })
+    const res = await authRequest('post', '/api/scores/recalculate-all').send({})
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ recalculated: 3 })
+    expect(ritualsService.recalculateAllRituals).toHaveBeenCalledWith(
+      expect.objectContaining({ shopId: 'shop-id-1' }),
+    )
   })
 })
 

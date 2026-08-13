@@ -304,3 +304,11 @@ export async function recalculateRitual(shop: ShopContext, id: string) {
 
   return { score, breakdown }
 }
+
+export async function recalculateAllRituals(shop: ShopContext): Promise<{ recalculated: number }> {
+  const active = await listRituals(shop.shopId, 'active')
+  for (const ritual of active) {
+    await recalculateRitual(shop, ritual.id)
+  }
+  return { recalculated: active.length }
+}

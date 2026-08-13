@@ -99,3 +99,11 @@ export interface Alert {
   status: string
   createdAt: string | Date
 }
+
+export interface ShopSettings {
+  defaultThreshold: number
+}
+
+export interface RecalculateAllResponse {
+  recalculated: number
+}

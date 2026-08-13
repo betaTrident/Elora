@@ -33,6 +33,7 @@ import {
   archiveRitual,
   listRituals,
   recalculateRitual,
+  recalculateAllRituals,
 } from './rituals'
 import { fetchInventory } from '../shopify/graphql'
 import { upsertAlerts } from './alerts'
@@ -224,5 +225,82 @@ describe('rituals service', () => {
       70,
       result.breakdown,
     )
+  })
+
+  it('recalculateAllRituals returns { recalculated: 0 } when there are no active rituals', async () => {
+    mockSelect.mockReturnValueOnce(createThenableChain([]))
+
+    const result = await recalculateAllRituals(SHOP)
+
+    expect(result).toEqual({ recalculated: 0 })
+    expect(upsertAlerts).not.toHaveBeenCalled()
+  })
+
+  it('recalculateAllRituals calls recalculateRitual once per active ritual', async () => {
+    const listQuery = createThenableChain([
+      {
+        id: 'r1',
+        title: 'Morning',
+        lastScore: 80,
+        scoreThreshold: 70,
+        lastScoredAt: null,
+        status: 'active',
+        description: null,
+      },
+      {
+        id: 'r2',
+        title: 'Evening',
+        lastScore: 60,
+        scoreThreshold: 70,
+        lastScoredAt: null,
+        status: 'active',
+        description: null,
+      },
+    ])
+    const ritualOne = createThenableChain([
+      { id: 'r1', title: 'Morning', shopId: 'shop-1', scoreThreshold: 70 },
+    ])
+    const componentsOne = createThenableChain([
+      {
+        id: 'c1',
+        ritualId: 'r1',
+        shopifyProductId: 'gid://shopify/Product/123',
+        shopifyVariantId: null,
+        role: 'cleanse',
+        quantity: 1,
+        unitCost: null,
+        sortOrder: 0,
+      },
+    ])
+    const ritualTwo = createThenableChain([
+      { id: 'r2', title: 'Evening', shopId: 'shop-1', scoreThreshold: 70 },
+    ])
+    const componentsTwo = createThenableChain([
+      {
+        id: 'c2',
+        ritualId: 'r2',
+        shopifyProductId: 'gid://shopify/Product/123',
+        shopifyVariantId: null,
+        role: 'treat',
+        quantity: 1,
+        unitCost: null,
+        sortOrder: 0,
+      },
+    ])
+    mockSelect
+      .mockReturnValueOnce(listQuery)
+      .mockReturnValueOnce(ritualOne)
+      .mockReturnValueOnce(componentsOne)
+      .mockReturnValueOnce(ritualTwo)
+      .mockReturnValueOnce(componentsTwo)
+    stubUpdate()
+    stubInsert()
+
+    const result = await recalculateAllRituals(SHOP)
+
+    expect(result).toEqual({ recalculated: 2 })
+    expect(upsertAlerts).toHaveBeenCalledTimes(2)
+    expect(upsertAlerts).toHaveBeenNthCalledWith(1, SHOP.shopId, 'r1', expect.any(Number), 70, expect.any(Object))
+    expect(upsertAlerts).toHaveBeenNthCalledWith(2, SHOP.shopId, 'r2', expect.any(Number), 70, expect.any(Object))
   })
 })

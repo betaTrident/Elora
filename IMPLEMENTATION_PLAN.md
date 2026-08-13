@@ -58,7 +58,7 @@ Repo folder: `elora/`. Theme shop name in `settings_schema.json` / locales: Elor
 | 7 — Ritual CRUD | **DONE** |
 | 8 — Activity Log | **DONE** |
 | 9 — Health Score Engine + Alerts | **DONE** |
-| 10 — Settings Page | NOT STARTED |
+| 10 — Settings Page | **DONE** |
 | 11 — Shopify Theme (Elora) | NOT STARTED |
 | 12 — Soft Ritual Builder | NOT STARTED |
 | 13 — Seed Data & Demo Script | NOT STARTED |
@@ -1742,7 +1742,7 @@ describe('calculateHealthScore', () => {
 
 ## Phase 10 — Settings Page
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Goal
 Merchant can set default threshold; "Recalculate all" rescores every active ritual.
@@ -1824,7 +1824,7 @@ export default function SettingsPage() {
 
 ---
 
-**End of Phase 10 — NOT STARTED**
+**End of Phase 10 — DONE**
 
 ---
 
@@ -2581,5 +2581,5 @@ Use this before submission.
 
 ---
 
-> **Next step:** Phase 0–9 are **DONE**. Continue at **Phase 10 — Settings Page**.
+> **Next step:** Phase 0–10 are **DONE**. Continue at **Phase 11 — Shopify Theme (Elora)**.
 > Update the Phase progress table and each phase **Status** / **End of Phase** line as work completes.

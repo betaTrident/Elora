@@ -65,3 +65,11 @@
   - Frontend: 3-bar ScoreBreakdown after save + Recalculate; edit-only Recalculate; AlertBanner on Dashboard
   - Server 58/58 tests; web 17/17; tsc pass
   - Minor (deferred): critical low_score test; resolveAlert no activity log (do before Phase 14); shallow listOpenAlerts shop assert; alert message not refreshed on same type; no HTTP POST resolve test; Dashboard error mock not path-aware; Recalculate error banner reuses save title; create-save navigates before breakdown paints; Recalculate test uses findAllByRole[0]; AlertBanner critical tone untested; Recalculate POST body undefined vs {}; archived rituals keep open alerts; Recalculate badge vs persisted threshold mismatch
+
+## Phase 10 — Settings Page
+
+- Task 10: complete (no commits; backend + frontend reviews Approved; whole-phase review Ready to merge)
+  - Backend: Drizzle `shop_settings` upsert (Map removed); `settings.updated` activity; sequential `POST /api/scores/recalculate-all` for active rituals
+  - Frontend: Settings RangeSlider + save + Recalculate all; Activity filter for `settings.updated`
+  - Server 67 tests; web 23 tests; tsc pass
+  - Minor (deferred): recalculate-all not atomic; active-only not locked by spy; settings tests skip where(shopId); help copy not RangeSlider helpText; recalculate failure / GET Retry click untested; singular toast untested; malformed recalculated unguarded; Toast may not remount on message change

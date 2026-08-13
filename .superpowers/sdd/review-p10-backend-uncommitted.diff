@@ -1,0 +1,474 @@
+﻿# Task 10 backend review package
+# Base: uncommitted working tree (no commits this task)
+# Head: working tree
+# Review backend Phase 10 only
+
+## git log --oneline -8
+
+e77fcd5 p9-implementation done 986473f implemented p7-p8 6306dce p5-6 implemented frontend. 1df38f3 p4-done af1ca7b p3-implemented-shopify-auth ce2a1a6 update implementation plan audit done phases f910a10 p2-implemented 126de4a Agentic Workflow Setup
+
+## git diff --stat
+
+ app/server/src/__tests__/api.test.ts     |  29 +++++++++  app/server/src/routes/scores.ts          |  10 ++++  app/server/src/routes/settings.ts        |   4 +-  app/server/src/services/rituals.test.ts  |  78 ++++++++++++++++++++++++  app/server/src/services/rituals.ts       |   8 +++  app/server/src/services/settings.test.ts | 100 +++++++++++++++++++++++++++++++  app/server/src/services/settings.ts      |  40 ++++++++++---  7 files changed, 260 insertions(+), 9 deletions(-)
+
+## git diff -U10
+
+diff --git a/app/server/src/__tests__/api.test.ts b/app/server/src/__tests__/api.test.ts
+index 7ecabca..e44146d 100644
+--- a/app/server/src/__tests__/api.test.ts
++++ b/app/server/src/__tests__/api.test.ts
+@@ -1,18 +1,19 @@
+ import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
+ import request from 'supertest'
+ import jwt from 'jsonwebtoken'
+ import crypto from 'crypto'
+ import type { Express } from 'express'
+ import * as ritualsService from '../services/rituals'
+ import * as activityService from '../services/activity'
+ import * as alertsService from '../services/alerts'
++import * as settingsService from '../services/settings'
+ 
+ const TEST_API_KEY = 'test-api-key'
+ const TEST_SECRET = 'test-secret'
+ 
+ const mockLimit = vi.fn()
+ const mockWhere = vi.fn(() => ({ limit: mockLimit }))
+ const mockFrom = vi.fn(() => ({ where: mockWhere }))
+ const mockSelect = vi.fn(() => ({ from: mockFrom }))
+ 
+ vi.mock('../db/client', () => ({
+@@ -94,20 +95,21 @@ describe('requireAuth on API routes', () => {
+     { method: 'get', path: '/api/rituals/mock-id' },
+     { method: 'put', path: '/api/rituals/mock-id' },
+     { method: 'post', path: '/api/rituals/mock-id/archive' },
+     { method: 'post', path: '/api/rituals/mock-id/recalculate' },
+     { method: 'get', path: '/api/scores/mock-id' },
+     { method: 'get', path: '/api/alerts' },
+     { method: 'post', path: '/api/alerts/mock-id/resolve' },
+     { method: 'get', path: '/api/activity' },
+     { method: 'get', path: '/api/settings' },
+     { method: 'put', path: '/api/settings' },
++    { method: 'post', path: '/api/scores/recalculate-all' },
+   ]
+ 
+   it.each(protectedRoutes)('$method $path returns 401 without token', async ({ method, path }) => {
+     const res = await request(app)[method](path)
+     expect(res.status).toBe(401)
+     expect(res.body).toEqual({ error: 'Missing token' })
+   })
+ })
+ 
+ describe('GET /api/dashboard', () => {
+@@ -178,31 +180,58 @@ describe('PUT /api/rituals/:id', () => {
+   it('returns 404 when id is missing', async () => {
+     vi.spyOn(ritualsService, 'updateRitual').mockRejectedValueOnce(
+       Object.assign(new Error('Not found'), { status: 404 }),
+     )
+     const res = await authRequest('put', '/api/rituals/missing').send(validRitualBody)
+     expect(res.status).toBe(404)
+     expect(res.body).toEqual({ error: 'Not found' })
+   })
+ })
+ 
++describe('GET /api/settings', () => {
++  it('returns 200 with defaultThreshold from the service', async () => {
++    vi.spyOn(settingsService, 'getSettings').mockResolvedValueOnce({ defaultThreshold: 80 })
++    const res = await authRequest('get', '/api/settings')
++    expect(res.status).toBe(200)
++    expect(res.body).toEqual({ defaultThreshold: 80 })
++    expect(settingsService.getSettings).toHaveBeenCalledWith('shop-id-1')
++  })
++})
++
+ describe('PUT /api/settings', () => {
+   it('returns 400 when defaultThreshold is out of range', async () => {
+     const res = await authRequest('put', '/api/settings').send({ defaultThreshold: 200 })
+     expect(res.status).toBe(400)
+     expect(res.body.error).toBe('Validation failed')
+   })
+ 
+   it('returns 200 for valid defaultThreshold', async () => {
++    vi.spyOn(settingsService, 'updateSettings').mockResolvedValueOnce({ defaultThreshold: 75 })
+     const res = await authRequest('put', '/api/settings').send({ defaultThreshold: 75 })
+     expect(res.status).toBe(200)
+     expect(res.body).toEqual({ defaultThreshold: 75 })
++    expect(settingsService.updateSettings).toHaveBeenCalledWith(
++      expect.objectContaining({ shopId: 'shop-id-1' }),
++      75,
++    )
++  })
++})
++
++describe('POST /api/scores/recalculate-all', () => {
++  it('returns 200 with recalculated count', async () => {
++    vi.spyOn(ritualsService, 'recalculateAllRituals').mockResolvedValueOnce({ recalculated: 3 })
++    const res = await authRequest('post', '/api/scores/recalculate-all').send({})
++    expect(res.status).toBe(200)
++    expect(res.body).toEqual({ recalculated: 3 })
++    expect(ritualsService.recalculateAllRituals).toHaveBeenCalledWith(
++      expect.objectContaining({ shopId: 'shop-id-1' }),
++    )
+   })
+ })
+ 
+ describe('POST /webhooks/app/uninstalled', () => {
+   it('returns 401 for invalid HMAC', async () => {
+     const body = JSON.stringify({ shop_domain: 'test.myshopify.com' })
+     const res = await request(app)
+       .post('/webhooks/app/uninstalled')
+       .set('Content-Type', 'application/json')
+       .set('X-Shopify-Hmac-Sha256', 'invalid-hmac')
+diff --git a/app/server/src/routes/scores.ts b/app/server/src/routes/scores.ts
+index e9616da..bfe84ee 100644
+--- a/app/server/src/routes/scores.ts
++++ b/app/server/src/routes/scores.ts
+@@ -1,14 +1,24 @@
+ import { Router } from 'express'
++import * as ritualsService from '../services/rituals'
+ 
+ const router = Router()
+ 
++router.post('/recalculate-all', async (req, res, next) => {
++  try {
++    const result = await ritualsService.recalculateAllRituals(req.shop)
++    res.json(result)
++  } catch (e) {
++    next(e)
++  }
++})
++
+ router.get('/:id', async (req, res, next) => {
+   try {
+     res.json({
+       id: req.params.id,
+       score: 80,
+       breakdown: { availability: 40, completeness: 20, margin: 15 },
+       calculatedAt: new Date().toISOString(),
+     })
+   } catch (e) {
+     next(e)
+diff --git a/app/server/src/routes/settings.ts b/app/server/src/routes/settings.ts
+index 952e7da..1e89e40 100644
+--- a/app/server/src/routes/settings.ts
++++ b/app/server/src/routes/settings.ts
+@@ -1,25 +1,25 @@
+ import { Router } from 'express'
+ import { z } from 'zod'
+ import * as settingsService from '../services/settings'
+ 
+ const router = Router()
+ const schema = z.object({ defaultThreshold: z.number().int().min(0).max(100) })
+ 
+ router.get('/', async (req, res, next) => {
+   try {
+-    res.json(settingsService.getSettings(req.shop.shopId))
++    res.json(await settingsService.getSettings(req.shop.shopId))
+   } catch (e) {
+     next(e)
+   }
+ })
+ 
+ router.put('/', async (req, res, next) => {
+   try {
+     const body = schema.parse(req.body)
+-    res.json(settingsService.updateSettings(req.shop.shopId, body.defaultThreshold))
++    res.json(await settingsService.updateSettings(req.shop, body.defaultThreshold))
+   } catch (e) {
+     next(e)
+   }
+ })
+ 
+ export default router
+diff --git a/app/server/src/services/rituals.test.ts b/app/server/src/services/rituals.test.ts
+index 7ee76fe..d7affa3 100644
+--- a/app/server/src/services/rituals.test.ts
++++ b/app/server/src/services/rituals.test.ts
+@@ -26,20 +26,21 @@ vi.mock('./alerts', () => ({
+   upsertAlerts: vi.fn().mockResolvedValue(undefined),
+ }))
+ 
+ import {
+   createRitual,
+   getRitual,
+   updateRitual,
+   archiveRitual,
+   listRituals,
+   recalculateRitual,
++  recalculateAllRituals,
+ } from './rituals'
+ import { fetchInventory } from '../shopify/graphql'
+ import { upsertAlerts } from './alerts'
+ 
+ const SHOP = { shopDomain: 'test.myshopify.com', shopId: 'shop-1', userId: 'user-1' }
+ 
+ function createThenableChain<T>(result: T) {
+   const chain = {
+     from: vi.fn(),
+     where: vi.fn(),
+@@ -218,11 +219,88 @@ describe('rituals service', () => {
+       }),
+     )
+     expect(upsertAlerts).toHaveBeenCalledWith(
+       SHOP.shopId,
+       'ritual-1',
+       result.score,
+       70,
+       result.breakdown,
+     )
+   })
++
++  it('recalculateAllRituals returns { recalculated: 0 } when there are no active rituals', async () => {
++    mockSelect.mockReturnValueOnce(createThenableChain([]))
++
++    const result = await recalculateAllRituals(SHOP)
++
++    expect(result).toEqual({ recalculated: 0 })
++    expect(upsertAlerts).not.toHaveBeenCalled()
++  })
++
++  it('recalculateAllRituals calls recalculateRitual once per active ritual', async () => {
++    const listQuery = createThenableChain([
++      {
++        id: 'r1',
++        title: 'Morning',
++        lastScore: 80,
++        scoreThreshold: 70,
++        lastScoredAt: null,
++        status: 'active',
++        description: null,
++      },
++      {
++        id: 'r2',
++        title: 'Evening',
++        lastScore: 60,
++        scoreThreshold: 70,
++        lastScoredAt: null,
++        status: 'active',
++        description: null,
++      },
++    ])
++    const ritualOne = createThenableChain([
++      { id: 'r1', title: 'Morning', shopId: 'shop-1', scoreThreshold: 70 },
++    ])
++    const componentsOne = createThenableChain([
++      {
++        id: 'c1',
++        ritualId: 'r1',
++        shopifyProductId: 'gid://shopify/Product/123',
++        shopifyVariantId: null,
++        role: 'cleanse',
++        quantity: 1,
++        unitCost: null,
++        sortOrder: 0,
++      },
++    ])
++    const ritualTwo = createThenableChain([
++      { id: 'r2', title: 'Evening', shopId: 'shop-1', scoreThreshold: 70 },
++    ])
++    const componentsTwo = createThenableChain([
++      {
++        id: 'c2',
++        ritualId: 'r2',
++        shopifyProductId: 'gid://shopify/Product/123',
++        shopifyVariantId: null,
++        role: 'treat',
++        quantity: 1,
++        unitCost: null,
++        sortOrder: 0,
++      },
++    ])
++    mockSelect
++      .mockReturnValueOnce(listQuery)
++      .mockReturnValueOnce(ritualOne)
++      .mockReturnValueOnce(componentsOne)
++      .mockReturnValueOnce(ritualTwo)
++      .mockReturnValueOnce(componentsTwo)
++    stubUpdate()
++    stubInsert()
++
++    const result = await recalculateAllRituals(SHOP)
++
++    expect(result).toEqual({ recalculated: 2 })
++    expect(upsertAlerts).toHaveBeenCalledTimes(2)
++    expect(upsertAlerts).toHaveBeenNthCalledWith(1, SHOP.shopId, 'r1', expect.any(Number), 70, expect.any(Object))
++    expect(upsertAlerts).toHaveBeenNthCalledWith(2, SHOP.shopId, 'r2', expect.any(Number), 70, expect.any(Object))
++  })
+ })
+diff --git a/app/server/src/services/rituals.ts b/app/server/src/services/rituals.ts
+index cdfd112..88e58de 100644
+--- a/app/server/src/services/rituals.ts
++++ b/app/server/src/services/rituals.ts
+@@ -297,10 +297,18 @@ export async function recalculateRitual(shop: ShopContext, id: string) {
+     entityType: 'ritual',
+     entityId: id,
+     summary: `Recalculated routine "${ritual.title}"`,
+     afterJson: { score },
+   })
+ 
+   await upsertAlerts(shop.shopId, id, score, ritual.scoreThreshold ?? 70, breakdown)
+ 
+   return { score, breakdown }
+ }
++
++export async function recalculateAllRituals(shop: ShopContext): Promise<{ recalculated: number }> {
++  const active = await listRituals(shop.shopId, 'active')
++  for (const ritual of active) {
++    await recalculateRitual(shop, ritual.id)
++  }
++  return { recalculated: active.length }
++}
+diff --git a/app/server/src/services/settings.test.ts b/app/server/src/services/settings.test.ts
+new file mode 100644
+index 0000000..55783f8
+--- /dev/null
++++ b/app/server/src/services/settings.test.ts
+@@ -0,0 +1,100 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest'
++
++const mockSelect = vi.fn()
++const mockInsert = vi.fn()
++
++vi.mock('../db/client', () => ({
++  db: {
++    select: (...args: unknown[]) => mockSelect(...args),
++    insert: (...args: unknown[]) => mockInsert(...args),
++  },
++}))
++
++vi.mock('./activity', () => ({
++  logActivity: vi.fn(),
++}))
++
++import { getSettings, updateSettings } from './settings'
++import { logActivity } from './activity'
++
++function createThenableChain<T>(result: T) {
++  const chain = {
++    from: vi.fn(),
++    where: vi.fn(),
++    orderBy: vi.fn(),
++    limit: vi.fn(),
++    then: (resolve: (value: T) => unknown, reject?: (reason: unknown) => unknown) =>
++      Promise.resolve(result).then(resolve, reject),
++  }
++  chain.from.mockReturnValue(chain)
++  chain.where.mockReturnValue(chain)
++  chain.orderBy.mockReturnValue(chain)
++  chain.limit.mockReturnValue(chain)
++  return chain
++}
++
++function stubUpsert() {
++  const onDuplicateKeyUpdate = vi.fn().mockResolvedValue(undefined)
++  const values = vi.fn().mockReturnValue({ onDuplicateKeyUpdate })
++  mockInsert.mockReturnValue({ values })
++  return { values, onDuplicateKeyUpdate }
++}
++
++const SHOP = { shopDomain: 'test.myshopify.com', shopId: 'shop-1', userId: 'user-1' }
++
++describe('getSettings', () => {
++  beforeEach(() => {
++    vi.clearAllMocks()
++  })
++
++  it('returns { defaultThreshold: 70 } when no row exists', async () => {
++    mockSelect.mockReturnValueOnce(createThenableChain([]))
++
++    const result = await getSettings(SHOP.shopId)
++
++    expect(result).toEqual({ defaultThreshold: 70 })
++  })
++
++  it('returns the stored threshold when a row exists', async () => {
++    mockSelect.mockReturnValueOnce(createThenableChain([{ shopId: SHOP.shopId, defaultThreshold: 80 }]))
++
++    const result = await getSettings(SHOP.shopId)
++
++    expect(result).toEqual({ defaultThreshold: 80 })
++  })
++})
++
++describe('updateSettings', () => {
++  beforeEach(() => {
++    vi.clearAllMocks()
++  })
++
++  it('upserts and returns the new threshold', async () => {
++    const { values, onDuplicateKeyUpdate } = stubUpsert()
++
++    const result = await updateSettings(SHOP, 85)
++
++    expect(result).toEqual({ defaultThreshold: 85 })
++    expect(values).toHaveBeenCalledWith({ shopId: SHOP.shopId, defaultThreshold: 85 })
++    expect(onDuplicateKeyUpdate).toHaveBeenCalledWith({ set: { defaultThreshold: 85 } })
++  })
++
++  it('calls logActivity with settings.updated and the threshold summary', async () => {
++    stubUpsert()
++
++    await updateSettings(SHOP, 85)
++
++    expect(logActivity).toHaveBeenCalledWith(
++      expect.anything(),
++      expect.objectContaining({
++        shopId: SHOP.shopId,
++        actorType: 'merchant',
++        actorId: SHOP.userId,
++        action: 'settings.updated',
++        entityType: 'shop_settings',
++        summary: 'Default threshold set to 85',
++        afterJson: { defaultThreshold: 85 },
++      }),
++    )
++  })
++})
+diff --git a/app/server/src/services/settings.ts b/app/server/src/services/settings.ts
+index 28516f6..3999e8b 100644
+--- a/app/server/src/services/settings.ts
++++ b/app/server/src/services/settings.ts
+@@ -1,11 +1,37 @@
+-const settingsByShop = new Map<string, { defaultThreshold: number }>()
++import { eq } from 'drizzle-orm'
++import { db } from '../db/client'
++import { shopSettings } from '../db/schema'
++import type { ShopContext } from '../shopify/auth'
++import { logActivity } from './activity'
+ 
+-export function getSettings(shopId: string) {
+-  return settingsByShop.get(shopId) ?? { defaultThreshold: 70 }
++export async function getSettings(shopId: string): Promise<{ defaultThreshold: number }> {
++  const [row] = await db
++    .select()
++    .from(shopSettings)
++    .where(eq(shopSettings.shopId, shopId))
++    .limit(1)
++
++  return { defaultThreshold: row?.defaultThreshold ?? 70 }
+ }
+ 
+-export function updateSettings(shopId: string, defaultThreshold: number) {
+-  const settings = { defaultThreshold }
+-  settingsByShop.set(shopId, settings)
+-  return settings
++export async function updateSettings(
++  shop: ShopContext,
++  defaultThreshold: number,
++): Promise<{ defaultThreshold: number }> {
++  await db
++    .insert(shopSettings)
++    .values({ shopId: shop.shopId, defaultThreshold })
++    .onDuplicateKeyUpdate({ set: { defaultThreshold } })
++
++  await logActivity(db, {
++    shopId: shop.shopId,
++    actorType: 'merchant',
++    actorId: shop.userId ?? undefined,
++    action: 'settings.updated',
++    entityType: 'shop_settings',
++    summary: `Default threshold set to ${defaultThreshold}`,
++    afterJson: { defaultThreshold },
++  })
++
++  return { defaultThreshold }
+ }

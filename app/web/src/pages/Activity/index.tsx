@@ -29,6 +29,7 @@ const ACTION_OPTIONS = [
   { label: 'Updated', value: 'ritual.updated' },
   { label: 'Archived', value: 'ritual.archived' },
   { label: 'Recalculated', value: 'ritual.recalculated' },
+  { label: 'Settings', value: 'settings.updated' },
 ]
 
 function buildActivityPath(actorType: string, action: string): string {
