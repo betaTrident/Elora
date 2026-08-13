@@ -42,4 +42,41 @@ describe('calculateHealthScore', () => {
     const { breakdown } = calculateHealthScore(components, inv)
     expect(breakdown.margin).toBe(15)
   })
+
+  it('awards margin 15 when unitCost is null on fully stocked kit', () => {
+    const inv = [makeInv('p1'), makeInv('p2'), makeInv('p3')]
+    const compsWithNullCost = components.map(c => ({ ...c, unitCost: null }))
+    const { breakdown } = calculateHealthScore(compsWithNullCost, inv)
+    expect(breakdown.margin).toBe(15)
+  })
+
+  it('never exceeds 100', () => {
+    const inv = [
+      makeInv('p1', 100, 'ACTIVE', '100.00'),
+      makeInv('p2', 100, 'ACTIVE', '100.00'),
+      makeInv('p3', 100, 'ACTIVE', '100.00'),
+    ]
+    const compsWithLowCost = components.map(c => ({ ...c, unitCost: 1 }))
+    const { score } = calculateHealthScore(compsWithLowCost, inv)
+    expect(score).toBeLessThanOrEqual(100)
+  })
+
+  it('awards completeness 20 when cleanse, treat, and seal are present', () => {
+    const inv = [makeInv('p1'), makeInv('p2'), makeInv('p3')]
+    const { breakdown } = calculateHealthScore(components, inv)
+    expect(breakdown.completeness).toBe(20)
+  })
+
+  it('awards completeness 0 when only scent is present', () => {
+    const scentOnly = [{ role: 'scent' as const, shopifyProductId: 'p1' }]
+    const inv = [makeInv('p1')]
+    const { breakdown } = calculateHealthScore(scentOnly, inv)
+    expect(breakdown.completeness).toBe(0)
+  })
+
+  it('awards availability 0 when inventory is empty (products not found)', () => {
+    const { breakdown } = calculateHealthScore(components, [])
+    expect(breakdown.availability).toBe(0)
+    expect(breakdown.factors.every(f => !f.available && f.reason === 'Product not found')).toBe(true)
+  })
 })

@@ -112,6 +112,24 @@ describe('rituals service', () => {
     )
   })
 
+  it('createRitual rejects when component insert fails and does not call upsertAlerts', async () => {
+    const settingsQuery = createThenableChain([{ defaultThreshold: 70 }])
+    mockSelect.mockReturnValueOnce(settingsQuery)
+
+    const ritualValuesFn = vi.fn().mockResolvedValue(undefined)
+    const componentValuesFn = vi.fn().mockRejectedValue(new Error('insert failed'))
+    let insertCall = 0
+    mockInsert.mockImplementation(() => {
+      insertCall += 1
+      return {
+        values: insertCall === 1 ? ritualValuesFn : componentValuesFn,
+      }
+    })
+
+    await expect(createRitual(SHOP, validBody)).rejects.toThrow('insert failed')
+    expect(upsertAlerts).not.toHaveBeenCalled()
+  })
+
   it('createRitual persists and scores with empty inventory when fetchInventory fails', async () => {
     vi.mocked(fetchInventory).mockRejectedValueOnce(new Error('GraphQL error'))
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})

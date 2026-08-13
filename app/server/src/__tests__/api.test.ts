@@ -113,6 +113,12 @@ describe('requireAuth on API routes', () => {
 })
 
 describe('GET /api/dashboard', () => {
+  it('requires auth and returns 401 without a token', async () => {
+    const res = await request(app).get('/api/dashboard')
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: 'Missing token' })
+  })
+
   it('returns 200 with mock dashboard data', async () => {
     const res = await authRequest('get', '/api/dashboard')
     expect(res.status).toBe(200)
@@ -120,6 +126,19 @@ describe('GET /api/dashboard', () => {
       counts: { total: 0, healthy: 0, broken: 0, unscored: 0, openAlerts: 0 },
       worst5: [],
       recentActivity: [],
+    })
+  })
+
+  it('returns 200 body that includes counts', async () => {
+    const res = await authRequest('get', '/api/dashboard')
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveProperty('counts')
+    expect(res.body.counts).toEqual({
+      total: 0,
+      healthy: 0,
+      broken: 0,
+      unscored: 0,
+      openAlerts: 0,
     })
   })
 })
@@ -134,6 +153,13 @@ describe('POST /api/rituals', () => {
 
   it('returns 400 for empty components array', async () => {
     const res = await authRequest('post', '/api/rituals').send({ title: 'X', components: [] })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('Validation failed')
+    expect(res.body.issues).toBeDefined()
+  })
+
+  it('returns 400 when components field is omitted', async () => {
+    const res = await authRequest('post', '/api/rituals').send({ title: 'X' })
     expect(res.status).toBe(400)
     expect(res.body.error).toBe('Validation failed')
     expect(res.body.issues).toBeDefined()
@@ -182,6 +208,15 @@ describe('PUT /api/rituals/:id', () => {
       Object.assign(new Error('Not found'), { status: 404 }),
     )
     const res = await authRequest('put', '/api/rituals/missing').send(validRitualBody)
+    expect(res.status).toBe(404)
+    expect(res.body).toEqual({ error: 'Not found' })
+  })
+
+  it('returns 404 when ritual belongs to another shop', async () => {
+    vi.spyOn(ritualsService, 'updateRitual').mockRejectedValueOnce(
+      Object.assign(new Error('Not found'), { status: 404 }),
+    )
+    const res = await authRequest('put', '/api/rituals/other-shop-ritual').send(validRitualBody)
     expect(res.status).toBe(404)
     expect(res.body).toEqual({ error: 'Not found' })
   })
@@ -292,8 +327,47 @@ describe('GET /api/activity', () => {
     const res = await authRequest('get', '/api/activity')
 
     expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
     expect(res.body).toEqual(rows)
     expect(activityService.listActivity).toHaveBeenCalledWith('shop-id-1', expect.any(Object))
+  })
+
+  it('returns recent logs as an array', async () => {
+    vi.spyOn(activityService, 'listActivity').mockResolvedValueOnce([])
+
+    const res = await authRequest('get', '/api/activity')
+
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+    expect(res.body).toEqual([])
+  })
+})
+
+describe('POST /api/rituals/:id/recalculate', () => {
+  it('returns 200 with score object', async () => {
+    const scoreResult = {
+      score: 65,
+      breakdown: {
+        availability: 50,
+        availabilityMax: 50,
+        completeness: 7,
+        completenessMax: 20,
+        margin: 15,
+        marginMax: 30,
+        total: 65,
+        factors: [],
+      },
+    }
+    vi.spyOn(ritualsService, 'recalculateRitual').mockResolvedValueOnce(scoreResult)
+    const res = await authRequest('post', '/api/rituals/ritual-1/recalculate').send({})
+    expect(res.status).toBe(200)
+    expect(typeof res.body.score).toBe('number')
+    expect(res.body.score).toBe(65)
+    expect(res.body.breakdown).toEqual(scoreResult.breakdown)
+    expect(ritualsService.recalculateRitual).toHaveBeenCalledWith(
+      expect.objectContaining({ shopId: 'shop-id-1' }),
+      'ritual-1',
+    )
   })
 })
 

@@ -118,3 +118,15 @@
   - Builder falls back to `collections['all']`; README seeds before the 8 steps; AM Glow tagged `scent:clean`
   - Ready to merge: Yes (work still uncommitted; user forbade commits unless asked)
   - Catalog tests 11/11; graphql tests 4/4; tsc clean
+
+## Phase 14 — Testing
+
+- Task 14A: complete (no commits during implementer; included in storefront commit)
+  - Implementer: Composer 2.5 ([14A unit tests](87e62f09-5de4-41a4-9ad8-737dd78ac758))
+  - scoring/alerts/rituals edge cases + `test:coverage`; 28 targeted / 96 full suite passing
+  - Coverage all-files ~45.79%; services much higher
+- Task 14B: complete (Composer/Grok 4.6 high fast ([14B API tests](780e6092-2e78-481f-8d72-15d1a27699b9)))
+  - api.test.ts 35 passing including dashboard auth/counts, omitted components 400, PUT isolation 404, recalculate score object
+  - DONE_WITH_CONCERNS: spy shape matches real `{ score, breakdown }`; isolation is service 404 not a second JWT
+- Manual QA: token 401, builder→cart, ritual line property verified; Admin click-through + README 30 min deferred to Phase 16
+- Ready to merge: storefront templates also shipped this session (search, 404, list-collections, customers, CMS pages, live theme push)

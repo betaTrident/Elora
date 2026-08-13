@@ -62,7 +62,7 @@ Repo folder: `elora/`. Theme shop name in `settings_schema.json` / locales: Elor
 | 11 — Shopify Theme (Elora) | **DONE** |
 | 12 — Soft Ritual Builder | **DONE** |
 | 13 — Seed Data & Demo Script | **DONE** |
-| 14 — Testing | NOT STARTED |
+| 14 — Testing | **DONE** |
 | 15 — Security & Polish | NOT STARTED |
 | 16 — Documentation & Deliverables | NOT STARTED |
 
@@ -2375,7 +2375,7 @@ seed()
 
 ## Phase 14 — Testing
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Unit tests
 
@@ -2399,13 +2399,13 @@ seed()
 
 - [ ] App installs fresh on dev store
 - [ ] Re-install (already installed) doesn't error
-- [ ] App Bridge session token 401 on tampered token
+- [x] App Bridge session token 401 on tampered token (`ping.test.ts`)
 - [ ] Ritual create → score → alert visible on dashboard
 - [ ] Set product OOS in Admin → recalculate → alert opens
 - [ ] Resolve alert → goes to resolved state in activity
-- [ ] Theme: Ritual Builder completes 3 steps and adds to cart
-- [ ] Cart shows ritual property on line items
-- [ ] README setup from scratch takes < 30 minutes
+- [x] Theme: Ritual Builder completes 3 steps and adds to cart
+- [x] Cart shows ritual property on line items
+- [ ] README setup from scratch takes < 30 minutes (Phase 16)
 
 ### Commands
 ```bash
@@ -2415,7 +2415,9 @@ cd app/server && npm run test:coverage
 
 ---
 
-**End of Phase 14 — NOT STARTED**
+**End of Phase 14 — DONE**
+
+Automated unit and Supertest rows in the tables above are covered. `npm run test:coverage` is added (`@vitest/coverage-v8@2.1.9`). All-files statement coverage is about 46% because scripts, db, and Shopify client paths are included; service-layer coverage is high. Remaining Admin click-through items belong with the Phase 16 demo.
 
 ---
 
@@ -2581,5 +2583,5 @@ Use this before submission.
 
 ---
 
-> **Next step:** Phase 0–13 are **DONE**. Continue at **Phase 14 — Testing**.
+> **Next step:** Phase 0–14 are **DONE**. Continue at **Phase 15 — Security & Polish**.
 > Update the Phase progress table and each phase **Status** / **End of Phase** line as work completes.

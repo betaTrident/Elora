@@ -80,6 +80,21 @@ describe('upsertAlerts', () => {
     stubUpdate()
   })
 
+  it('does not open low_score when score is exactly at threshold', async () => {
+    mockSelect.mockReturnValueOnce(createThenableChain([]))
+    const valuesFn = stubInsert()
+
+    await upsertAlerts(SHOP_ID, RITUAL_ID, 70, 70, healthyBreakdown)
+
+    expect(valuesFn).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'low_score' }),
+    )
+    const lowScoreCalls = valuesFn.mock.calls.filter(
+      ([row]) => (row as { type: string }).type === 'low_score',
+    )
+    expect(lowScoreCalls).toHaveLength(0)
+  })
+
   it('opens low_score when score below threshold', async () => {
     mockSelect.mockReturnValueOnce(createThenableChain([]))
     const valuesFn = stubInsert()

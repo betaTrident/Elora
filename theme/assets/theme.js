@@ -138,6 +138,62 @@
     });
   });
 
+  /* ── Header search: close on outside click / Escape ─ */
+  document.querySelectorAll('[data-header-search]').forEach(function (search) {
+    document.addEventListener('click', function (event) {
+      if (search.hasAttribute('open') && !search.contains(event.target)) {
+        search.removeAttribute('open');
+      }
+    });
+    search.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && search.hasAttribute('open')) {
+        search.removeAttribute('open');
+        var summary = search.querySelector('summary');
+        if (summary) summary.focus();
+      }
+    });
+    search.addEventListener('toggle', function () {
+      if (search.hasAttribute('open')) {
+        var input = search.querySelector('input[type="search"]');
+        if (input) input.focus();
+      }
+    });
+  });
+
+  /* ── Add to ritual (PDP) ───────────────────────────── */
+  document.querySelectorAll('[data-add-to-ritual]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var form = btn.closest('form');
+      if (!form) return;
+      var idInput = form.querySelector('input[name="id"]');
+      var qtyInput = form.querySelector('input[name="quantity"]');
+      var titleEl = document.querySelector('.product__title');
+      var title = titleEl ? titleEl.textContent.replace(/\s+/g, ' ').trim() : '';
+      if (!idInput || !idInput.value) return;
+      btn.disabled = true;
+      fetch('/cart/add.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          items: [
+            {
+              id: Number(idInput.value),
+              quantity: Number(qtyInput && qtyInput.value ? qtyInput.value : 1),
+              properties: { 'Elora Ritual': title || 'pdp' },
+            },
+          ],
+        }),
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error('add failed');
+          window.location.href = '/cart';
+        })
+        .catch(function () {
+          btn.disabled = false;
+        });
+    });
+  });
+
   /* ── Quantity stepper ──────────────────────────────── */
   document.querySelectorAll('.qty-stepper').forEach(function (stepper) {
     var valEl = stepper.querySelector('.qty-stepper__val');

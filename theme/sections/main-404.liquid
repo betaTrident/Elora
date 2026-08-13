@@ -1,0 +1,22 @@
+<section class="utility-page page-width">
+  <header class="utility-page__header">
+    <h1 class="utility-page__title">{{ 'not_found.title' | t }}</h1>
+    <p class="utility-page__lede">{{ 'not_found.body' | t }}</p>
+    <div class="about__actions">
+      <a href="{{ routes.root_url }}" class="btn">{{ 'not_found.home' | t }}</a>
+      <a href="{{ routes.all_products_collection_url }}" class="btn btn--secondary">{{ 'not_found.shop' | t }}</a>
+    </div>
+  </header>
+  <form action="{{ routes.search_url }}" method="get" class="search-page__form" role="search">
+    <label class="visually-hidden" for="NotFoundSearch">{{ 'header.search' | t }}</label>
+    <input id="NotFoundSearch" type="search" name="q" placeholder="{{ 'search.placeholder' | t }}">
+    <button type="submit" class="btn">{{ 'header.search' | t }}</button>
+  </form>
+</section>
+
+{% schema %}
+{
+  "name": "404",
+  "settings": []
+}
+{% endschema %}

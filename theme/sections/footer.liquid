@@ -33,10 +33,16 @@
       <div class="footer__col">
         <h3 class="footer__col-heading">{{ section.settings.col_shop_heading | default: 'Shop' }}</h3>
         <ul class="footer__col-list" role="list">
-          <li><a href="{{ routes.collections_url }}">All Collections</a></li>
-          <li><a href="{{ routes.collections_url }}/new-arrivals">New Arrivals</a></li>
-          <li><a href="{{ routes.collections_url }}/best-sellers">Best Sellers</a></li>
-          <li><a href="{{ routes.collections_url }}/gift-sets">Gift Sets</a></li>
+          <li><a href="{{ routes.collections_url }}">{{ 'footer.all_collections' | t }}</a></li>
+          <li><a href="{{ routes.all_products_collection_url }}?sort_by=created-descending">{{ 'footer.new_arrivals' | t }}</a></li>
+          <li><a href="{{ routes.all_products_collection_url }}?sort_by=best-selling">{{ 'footer.best_sellers' | t }}</a></li>
+          <li>
+            {%- if collections.sets != blank -%}
+              <a href="{{ collections.sets.url }}">{{ 'footer.gift_sets' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.collections_url }}/sets">{{ 'footer.gift_sets' | t }}</a>
+            {%- endif -%}
+          </li>
         </ul>
       </div>
 
@@ -45,23 +51,59 @@
         <ul class="footer__col-list" role="list">
           <li>
             {%- if pages.about != blank -%}
-              <a href="{{ pages.about.url }}">About Elora</a>
+              <a href="{{ pages.about.url }}">{{ 'footer.about' | t }}</a>
             {%- else -%}
-              <a href="{{ routes.root_url }}pages/about">About Elora</a>
+              <a href="{{ routes.root_url }}pages/about">{{ 'footer.about' | t }}</a>
             {%- endif -%}
           </li>
-          <li><a href="{{ routes.root_url }}pages/ingredients">Our Ingredients</a></li>
-          <li><a href="{{ routes.root_url }}pages/sustainability">Sustainability</a></li>
-          <li><a href="{{ routes.root_url }}pages/contact">Contact Us</a></li>
+          <li>
+            {%- if pages.ingredients != blank -%}
+              <a href="{{ pages.ingredients.url }}">{{ 'footer.ingredients' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/ingredients">{{ 'footer.ingredients' | t }}</a>
+            {%- endif -%}
+          </li>
+          <li>
+            {%- if pages.sustainability != blank -%}
+              <a href="{{ pages.sustainability.url }}">{{ 'footer.sustainability' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/sustainability">{{ 'footer.sustainability' | t }}</a>
+            {%- endif -%}
+          </li>
+          <li>
+            {%- if pages.contact != blank -%}
+              <a href="{{ pages.contact.url }}">{{ 'footer.contact' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/contact">{{ 'footer.contact' | t }}</a>
+            {%- endif -%}
+          </li>
         </ul>
       </div>
 
       <div class="footer__col">
         <h3 class="footer__col-heading">{{ section.settings.col_support_heading | default: 'Support' }}</h3>
         <ul class="footer__col-list" role="list">
-          <li><a href="{{ routes.root_url }}pages/faq">FAQ</a></li>
-          <li><a href="{{ routes.root_url }}pages/shipping-returns">Shipping &amp; Returns</a></li>
-          <li><a href="{{ routes.root_url }}pages/track-order">Track Order</a></li>
+          <li>
+            {%- if pages.faq != blank -%}
+              <a href="{{ pages.faq.url }}">{{ 'footer.faq' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/faq">{{ 'footer.faq' | t }}</a>
+            {%- endif -%}
+          </li>
+          <li>
+            {%- if pages['shipping-returns'] != blank -%}
+              <a href="{{ pages['shipping-returns'].url }}">{{ 'footer.shipping' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/shipping-returns">{{ 'footer.shipping' | t }}</a>
+            {%- endif -%}
+          </li>
+          <li>
+            {%- if pages['track-order'] != blank -%}
+              <a href="{{ pages['track-order'].url }}">{{ 'footer.track_order' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/track-order">{{ 'footer.track_order' | t }}</a>
+            {%- endif -%}
+          </li>
         </ul>
       </div>
 

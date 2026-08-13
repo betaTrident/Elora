@@ -1,0 +1,47 @@
+<section class="utility-page page-width">
+  <header class="utility-page__header">
+    <h1 class="utility-page__title">{{ 'search.title' | t }}</h1>
+    <form action="{{ routes.search_url }}" method="get" class="search-page__form" role="search">
+      <label class="visually-hidden" for="SearchPageInput">{{ 'header.search' | t }}</label>
+      <input
+        id="SearchPageInput"
+        type="search"
+        name="q"
+        value="{{ search.terms | escape }}"
+        placeholder="{{ 'search.placeholder' | t }}"
+      >
+      <button type="submit" class="btn">{{ 'header.search' | t }}</button>
+    </form>
+  </header>
+
+  {%- if search.performed -%}
+    <p class="utility-page__meta">{{ 'search.results_count' | t: count: search.results_count }}</p>
+    {% paginate search.results by 12 %}
+      {%- if search.results.size > 0 -%}
+        <ul class="product-grid" role="list">
+          {%- for item in search.results -%}
+            <li>
+              {%- if item.object_type == 'product' -%}
+                {% render 'product-card', product: item %}
+              {%- else -%}
+                <a class="search-page__hit" href="{{ item.url }}">{{ item.title | escape }}</a>
+              {%- endif -%}
+            </li>
+          {%- endfor -%}
+        </ul>
+        <div class="collection__pagination">{{ paginate | default_pagination }}</div>
+      {%- else -%}
+        <p class="utility-page__empty">{{ 'search.empty' | t: terms: search.terms }}</p>
+      {%- endif -%}
+    {% endpaginate %}
+  {%- else -%}
+    <p class="utility-page__empty">{{ 'search.prompt' | t }}</p>
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Search",
+  "settings": []
+}
+{% endschema %}

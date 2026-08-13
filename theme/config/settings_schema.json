@@ -6,5 +6,16 @@
     "theme_version": "1.0.0",
     "theme_documentation_url": "https://help.shopify.com/manual/online-store/themes",
     "theme_support_url": "https://help.shopify.com/"
+  },
+  {
+    "name": "Logo",
+    "settings": [
+      {
+        "type": "image_picker",
+        "id": "favicon",
+        "label": "Favicon",
+        "info": "Shown in the browser tab. Square PNG, at least 32 x 32px. SVG or 180 x 180px PNG is ideal."
+      }
+    ]
   }
 ]

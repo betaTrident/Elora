@@ -48,6 +48,7 @@
   },
   "products": {
     "add_to_cart": "Add to bag",
+    "add_to_ritual": "Add to ritual",
     "quantity": "Quantity",
     "sold_out": "Sold out",
     "variant": "Size",
@@ -64,6 +65,57 @@
   "products_trust": {
     "shipping": "Free shipping on orders $50+ / US orders only",
     "returns": "Easy returns / 30-day return policy"
+  },
+  "search": {
+    "placeholder": "Search Elora",
+    "title": "Search",
+    "empty": "No matches for “{{ terms }}”. Try a product name or concern.",
+    "prompt": "Search the ritual wardrobe.",
+    "results_count": "{{ count }} results"
+  },
+  "not_found": {
+    "title": "This page has wandered off.",
+    "body": "The ritual is still here. Try search, or return home.",
+    "home": "Back home",
+    "shop": "Shop the collection"
+  },
+  "list_collections": {
+    "title": "Collections",
+    "subline": "Face, body, scent, and sets — the full wardrobe."
+  },
+  "customers": {
+    "login": "Sign in",
+    "register": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "submit_login": "Sign in",
+    "submit_register": "Create account",
+    "forgot": "Forgot password",
+    "recover": "Reset password",
+    "recover_prompt": "Enter your email and we will send a reset link.",
+    "submit_recover": "Send reset link",
+    "first_name": "First name",
+    "last_name": "Last name",
+    "account": "Account",
+    "orders": "Orders",
+    "addresses": "Addresses",
+    "logout": "Sign out",
+    "no_orders": "No orders yet.",
+    "default_address": "Default",
+    "add_address": "Add address",
+    "edit_address": "Edit address",
+    "delete_address": "Delete",
+    "order": "Order {{ name }}",
+    "reset": "Choose a new password",
+    "activate": "Activate your account",
+    "submit_reset": "Save password",
+    "submit_activate": "Activate",
+    "address": "Address",
+    "city": "City",
+    "postal": "Postal code"
+  },
+  "pages": {
+    "continue": "Continue shopping"
   },
   "about": {
     "eyebrow": "The brand",
@@ -146,7 +198,18 @@
   },
   "footer": {
     "copyright": "© {{ year }} {{ shop_name }}",
-    "navigation": "Footer navigation"
+    "navigation": "Footer navigation",
+    "all_collections": "All Collections",
+    "new_arrivals": "New Arrivals",
+    "best_sellers": "Best Sellers",
+    "gift_sets": "Gift Sets",
+    "about": "About Elora",
+    "ingredients": "Our Ingredients",
+    "sustainability": "Sustainability",
+    "contact": "Contact Us",
+    "faq": "FAQ",
+    "shipping": "Shipping & Returns",
+    "track_order": "Track Order"
   },
   "ingredient_honesty": {
     "in": "What's in.",

@@ -134,6 +134,13 @@
         </div>
 
         <button type="submit" class="btn btn--full">{{ 'products.add_to_cart' | t }}</button>
+        <button
+          type="button"
+          class="btn btn--secondary btn--full"
+          data-add-to-ritual
+        >
+          {{ 'products.add_to_ritual' | t }}
+        </button>
       {% endform %}
     {%- else -%}
       <button type="button" class="btn btn--full" disabled>{{ 'products.sold_out' | t }}</button>
