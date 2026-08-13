@@ -73,3 +73,11 @@
   - Frontend: Settings RangeSlider + save + Recalculate all; Activity filter for `settings.updated`
   - Server 67 tests; web 23 tests; tsc pass
   - Minor (deferred): recalculate-all not atomic; active-only not locked by spy; settings tests skip where(shopId); help copy not RangeSlider helpText; recalculate failure / GET Retry click untested; singular toast untested; malformed recalculated unguarded; Toast may not remount on message change
+
+## Phase 11 — Shopify Theme (Elora)
+
+- Task 11: complete (no commits; 11A + 11B reviews Approved; whole-phase review Ready to merge)
+  - 11A: OS 2.0 skeleton — layout, 4 templates, header Elora lockup, brand tokens, cart property rendering
+  - 11B: hero-editorial, ingredient-honesty, routine-editorial, scent-wardrobe; index.json order without builder (Phase 12)
+  - validate.mjs: leftover RemoteAsset on mandated Google Fonts; theme check exit 0
+  - Minor (deferred): featured collection empty until merchant assigns; variant price/media not live; empty main-menu still outputs nav; mobile cart price grid; image alt fallbacks; prefers-reduced-motion; hero h1 wraps richtext p; routine products empty until picked; heading skip in routine editorial; fonts.gstatic preconnect

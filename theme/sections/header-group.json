@@ -1,0 +1,17 @@
+{
+  "type": "header",
+  "name": "Header",
+  "sections": {
+    "announcement-bar": {
+      "type": "announcement-bar",
+      "settings": {
+        "text": "Your everyday beauty ritual."
+      }
+    },
+    "header": {
+      "type": "header",
+      "settings": {}
+    }
+  },
+  "order": ["announcement-bar", "header"]
+}

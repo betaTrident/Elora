@@ -59,7 +59,7 @@ Repo folder: `elora/`. Theme shop name in `settings_schema.json` / locales: Elor
 | 8 — Activity Log | **DONE** |
 | 9 — Health Score Engine + Alerts | **DONE** |
 | 10 — Settings Page | **DONE** |
-| 11 — Shopify Theme (Elora) | NOT STARTED |
+| 11 — Shopify Theme (Elora) | **DONE** |
 | 12 — Soft Ritual Builder | NOT STARTED |
 | 13 — Seed Data & Demo Script | NOT STARTED |
 | 14 — Testing | NOT STARTED |
@@ -1830,7 +1830,7 @@ export default function SettingsPage() {
 
 ## Phase 11 — Shopify Theme (Elora)
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Goal
 4 Liquid templates, Elora brand tokens and copy, editorial hero, 3+ custom sections, functional cart.
@@ -2074,7 +2074,7 @@ shopify theme dev --store <your-dev-store>.myshopify.com
 
 ---
 
-**End of Phase 11 — NOT STARTED**
+**End of Phase 11 — DONE**
 
 ---
 
@@ -2581,5 +2581,5 @@ Use this before submission.
 
 ---
 
-> **Next step:** Phase 0–10 are **DONE**. Continue at **Phase 11 — Shopify Theme (Elora)**.
+> **Next step:** Phase 0–11 are **DONE**. Continue at **Phase 12 — Soft Ritual Builder (Interactive Feature)**.
 > Update the Phase progress table and each phase **Status** / **End of Phase** line as work completes.

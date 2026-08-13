@@ -1,0 +1,58 @@
+<header class="header page-width">
+  {% render 'brand-lockup' %}
+
+  <nav class="header__nav" aria-label="{{ 'header.menu' | t }}">
+    <ul>
+      {%- for link in linklists.main-menu.links -%}
+        <li>
+          <a
+            href="{{ link.url }}"
+            {% if link.current %}
+              aria-current="page"
+            {% endif %}
+          >
+            {{ link.title | escape }}
+          </a>
+        </li>
+      {%- endfor -%}
+    </ul>
+  </nav>
+
+  <div class="header__icons">
+    <button class="header__icon-btn" aria-label="Search" type="button">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="8.5" cy="8.5" r="5.5"/>
+        <line x1="13" y1="13" x2="18" y2="18"/>
+      </svg>
+    </button>
+
+    <a href="{{ routes.account_url }}" class="header__icon-btn" aria-label="{{ 'header.account' | t | default: 'Account' }}">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="10" cy="6.5" r="3.5"/>
+        <path d="M2.5 18c0-4.142 3.358-7.5 7.5-7.5s7.5 3.358 7.5 7.5"/>
+      </svg>
+    </a>
+
+    <a href="{{ routes.cart_url }}" class="header__icon-btn header__cart-icon" aria-label="{{ 'header.cart' | t }}: {{ cart.item_count }} {{ cart.item_count | pluralize: 'item', 'items' }}">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 2L3 6v13a1 1 0 001 1h12a1 1 0 001-1V6l-3-4z"/>
+        <line x1="3" y1="6" x2="17" y2="6"/>
+        <path d="M13 10a3 3 0 01-6 0"/>
+      </svg>
+      {%- if cart.item_count > 0 -%}
+        <span class="header__cart-badge" aria-hidden="true">{{ cart.item_count }}</span>
+      {%- endif -%}
+    </a>
+  </div>
+</header>
+
+{% schema %}
+{
+  "name": "Header",
+  "class": "section-header",
+  "enabled_on": {
+    "groups": ["header"]
+  },
+  "settings": []
+}
+{% endschema %}

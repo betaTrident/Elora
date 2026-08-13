@@ -1,0 +1,128 @@
+{
+  "sections": {
+    "hero": {
+      "type": "hero-editorial",
+      "settings": {
+        "eyebrow": "Elora",
+        "heading": "<p>Your everyday beauty ritual.</p>",
+        "body": "<p>Soft rituals for face and body. Composed, never hurried.</p>",
+        "bg_color": "#F6EFE8"
+      }
+    },
+    "editorial": {
+      "type": "routine-editorial",
+      "blocks": {
+        "step-am": {
+          "type": "step",
+          "settings": {
+            "moment": "AM · Face",
+            "heading": "Morning light",
+            "body": "<p>A quiet start. Cleanse, then a veil of moisture before the day begins.</p>"
+          }
+        },
+        "step-pm": {
+          "type": "step",
+          "settings": {
+            "moment": "PM · Face",
+            "heading": "The last quiet",
+            "body": "<p>Remove the day. Soften. Leave skin ready for rest.</p>"
+          }
+        },
+        "step-body": {
+          "type": "step",
+          "settings": {
+            "moment": "After shower",
+            "heading": "Skin still warm",
+            "body": "<p>Oil, mist, a lingering close scent. The body ritual.</p>"
+          }
+        }
+      },
+      "block_order": ["step-am", "step-pm", "step-body"]
+    },
+    "ingredients": {
+      "type": "ingredient-honesty",
+      "settings": {
+        "heading": "What's in. What's never in."
+      },
+      "blocks": {
+        "in-rose": {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Rose otto",
+            "note": "A close, petal warmth."
+          }
+        },
+        "in-sandalwood": {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Sandalwood",
+            "note": "Quiet wood, worn on skin."
+          }
+        },
+        "never-fragrance": {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Harsh fragrance",
+            "note": "Nothing that fills a room uninvited."
+          }
+        },
+        "never-film": {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Heavy film",
+            "note": "Nothing that sits on the skin."
+          }
+        }
+      },
+      "block_order": ["in-rose", "in-sandalwood", "never-fragrance", "never-film"]
+    },
+    "scent": {
+      "type": "scent-wardrobe",
+      "settings": {
+        "heading": "A scent wardrobe"
+      },
+      "blocks": {
+        "warm": {
+          "type": "scent",
+          "settings": {
+            "name": "Warm",
+            "note": "Sandalwood, close to skin."
+          }
+        },
+        "soft": {
+          "type": "scent",
+          "settings": {
+            "name": "Soft",
+            "note": "Clean musk, after water."
+          }
+        },
+        "bloom": {
+          "type": "scent",
+          "settings": {
+            "name": "Bloom",
+            "note": "Quiet florals, morning light."
+          }
+        },
+        "night": {
+          "type": "scent",
+          "settings": {
+            "name": "Night",
+            "note": "Amber, low light."
+          }
+        }
+      },
+      "block_order": ["warm", "soft", "bloom", "night"]
+    },
+    "featured": {
+      "type": "featured-collection",
+      "settings": {
+        "title": "The ritual wardrobe"
+      }
+    }
+  },
+  "order": ["hero", "editorial", "ingredients", "scent", "featured"]
+}

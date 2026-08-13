@@ -1,0 +1,130 @@
+<section class="cart page-width">
+  <div class="cart__title-row">
+    <h1 class="cart__title">{{ 'cart.title' | t }}</h1>
+    {%- if cart.item_count > 0 -%}
+      <span class="cart__count">{{ cart.item_count }} {{ cart.item_count | pluralize: 'item', 'items' }}</span>
+    {%- endif -%}
+  </div>
+
+  {%- if cart.item_count == 0 -%}
+    <p class="cart__empty">{{ 'cart.empty' | t }}</p>
+    <a href="{{ routes.collections_url }}" class="btn">Continue shopping</a>
+  {%- else -%}
+    {% form 'cart', cart, class: 'cart-form' %}
+      {{ form.errors | default_errors }}
+
+      <div class="cart__header-row" aria-hidden="true">
+        <span>{{ 'cart.product' | t }}</span>
+        <span>{{ 'cart.price' | t }}</span>
+        <span>{{ 'cart.quantity' | t }}</span>
+        <span>{{ 'cart.total' | t }}</span>
+      </div>
+
+      <ul class="cart-items" role="list">
+        {%- for item in cart.items -%}
+          <li class="cart-item">
+            <div class="cart-item__media">
+              {%- if item.image -%}
+                {{ item.image | image_url: width: 240 | image_tag: loading: 'lazy', alt: item.image.alt, class: 'cart-item__image' }}
+              {%- else -%}
+                {{ 'product-1' | placeholder_svg_tag: 'cart-item__image' }}
+              {%- endif -%}
+            </div>
+
+            <div class="cart-item__details">
+              <h2 class="cart-item__title">
+                <a href="{{ item.url }}">{{ item.product.title | escape }}</a>
+              </h2>
+              {%- unless item.product.has_only_default_variant -%}
+                <p class="cart-item__variant">{{ item.variant.title | escape }}</p>
+              {%- endunless -%}
+
+              {%- unless item.properties == empty -%}
+                <dl class="cart-item__properties">
+                  {%- for property in item.properties -%}
+                    {%- assign property_first_char = property.first | slice: 0 -%}
+                    {%- if property_first_char != '_' -%}
+                      <div class="cart-item__property">
+                        <dt>{{ property.first | escape }}</dt>
+                        <dd>
+                          {%- if property.last contains '/uploads/' -%}
+                            <a href="{{ property.last }}">{{ property.last | split: '/' | last | escape }}</a>
+                          {%- else -%}
+                            {{ property.last | escape }}
+                          {%- endif -%}
+                        </dd>
+                      </div>
+                    {%- endif -%}
+                  {%- endfor -%}
+                </dl>
+              {%- endunless -%}
+
+              <a href="{{ item.url_to_remove }}" class="cart-item__remove">{{ 'cart.remove' | t }}</a>
+            </div>
+
+            <p class="cart-item__price">{{ item.price | money }}</p>
+
+            <div class="cart-item__qty-wrap">
+              <input
+                type="number"
+                id="Updates-{{ item.key }}"
+                name="updates[{{ item.key }}]"
+                value="{{ item.quantity }}"
+                min="0"
+                class="cart-item__qty"
+                data-cart-quantity
+                aria-label="{{ 'cart.quantity' | t }}"
+              >
+            </div>
+
+            <p class="cart-item__total">{{ item.final_line_price | money }}</p>
+          </li>
+        {%- endfor -%}
+      </ul>
+
+      <div class="cart__note-row">
+        <input
+          type="text"
+          class="cart__note-input"
+          placeholder="Add a note or promo code"
+          aria-label="Add a note or promo code"
+        >
+        <button type="button" class="btn btn--secondary cart__note-apply">Apply</button>
+      </div>
+
+      <div class="cart__summary">
+        <div class="cart__summary-lines">
+          <div class="cart__summary-line">
+            <span>{{ 'cart.subtotal' | t }}</span>
+            <span>{{ cart.total_price | money }}</span>
+          </div>
+          <div class="cart__summary-line cart__summary-line--muted">
+            <span>Shipping</span>
+            <span>Calculated at checkout</span>
+          </div>
+        </div>
+        <div class="cart__summary-total">
+          <span>{{ 'cart.total' | t }}</span>
+          <span>{{ cart.total_price | money }}</span>
+        </div>
+        <button type="submit" name="checkout" class="btn btn--full">{{ 'cart.checkout' | t }}</button>
+        <a href="{{ routes.collections_url }}" class="cart__continue">Continue shopping</a>
+      </div>
+    {% endform %}
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Cart",
+  "enabled_on": {
+    "templates": ["cart"]
+  },
+  "settings": [],
+  "presets": [
+    {
+      "name": "Cart"
+    }
+  ]
+}
+{% endschema %}

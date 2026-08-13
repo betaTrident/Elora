@@ -1,0 +1,236 @@
+<section class="scent-wardrobe">
+  <div class="scent-wardrobe__inner page-width">
+    {%- if section.settings.heading != blank -%}
+      <h2 class="scent-wardrobe__heading reveal">{{ section.settings.heading | escape }}</h2>
+    {%- endif -%}
+    <ul class="scent-wardrobe__grid" role="list">
+      {%- for block in section.blocks -%}
+        <li class="scent-wardrobe__item reveal reveal-delay-{{ forloop.index }}" {{ block.shopify_attributes }}>
+          {%- if block.settings.number != blank -%}
+            <span class="scent-wardrobe__number">{{ block.settings.number | escape }}</span>
+          {%- endif -%}
+          {%- if block.settings.name != blank -%}
+            <h3 class="scent-wardrobe__name">{{ block.settings.name | escape }}</h3>
+          {%- endif -%}
+          {%- if block.settings.note != blank -%}
+            <p class="scent-wardrobe__note">{{ block.settings.note | escape }}</p>
+          {%- endif -%}
+          {%- if block.settings.cta_label != blank -%}
+            <a
+              href="{{ block.settings.cta_url | default: '#' }}"
+              class="scent-wardrobe__cta"
+            >{{ block.settings.cta_label | escape }}</a>
+          {%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+
+{% stylesheet %}
+  .scent-wardrobe {
+    padding: var(--spacing-section) 0;
+    background: var(--color-porcelain);
+  }
+
+  .scent-wardrobe__heading {
+    margin: 0 0 var(--spacing-xl);
+    font-size: clamp(1.6rem, 3.2vw, 2.5rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .scent-wardrobe__grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-md);
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 600px) {
+    .scent-wardrobe__grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 900px) {
+    .scent-wardrobe__grid {
+      grid-template-columns: 1.5fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+    }
+
+    .scent-wardrobe__item:first-child {
+      grid-row: span 2;
+    }
+
+    .scent-wardrobe__item:last-child {
+      grid-column: span 2;
+    }
+  }
+
+  .scent-wardrobe__item {
+    padding: var(--spacing-xl) var(--spacing-lg);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    min-height: 12rem;
+    transition: box-shadow var(--transition-base), transform var(--transition-slow);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .scent-wardrobe__item:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+    }
+  }
+
+  @media (min-width: 900px) {
+    .scent-wardrobe__item:first-child {
+      min-height: 20rem;
+    }
+  }
+
+  .scent-wardrobe__item:first-child  { background: var(--color-porcelain-deep); }
+  .scent-wardrobe__item:nth-child(2) { background: var(--color-surface); }
+  .scent-wardrobe__item:nth-child(3) { background: var(--color-sage-pale); }
+  .scent-wardrobe__item:last-child   { background: var(--color-sand); }
+
+  .scent-wardrobe__number {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 0.875rem;
+    color: var(--color-muted);
+    letter-spacing: 0.01em;
+    margin-bottom: 0.1rem;
+  }
+
+  .scent-wardrobe__name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .scent-wardrobe__note {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    max-width: 28ch;
+  }
+
+  .scent-wardrobe__cta {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    letter-spacing: 0.04em;
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+    text-decoration-thickness: 1px;
+    transition: color var(--transition-fast);
+  }
+
+  .scent-wardrobe__cta:hover {
+    color: var(--color-sage);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Scent wardrobe",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "The Elora Scent Wardrobe"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "scent",
+      "name": "Scent",
+      "settings": [
+        {
+          "type": "text",
+          "id": "number",
+          "label": "Number (e.g. N\u00b001)",
+          "placeholder": "N\u00b001"
+        },
+        {
+          "type": "text",
+          "id": "name",
+          "label": "Name"
+        },
+        {
+          "type": "text",
+          "id": "note",
+          "label": "Tagline"
+        },
+        {
+          "type": "text",
+          "id": "cta_label",
+          "label": "CTA label",
+          "placeholder": "Shop Now"
+        },
+        {
+          "type": "url",
+          "id": "cta_url",
+          "label": "CTA link"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Scent wardrobe",
+      "blocks": [
+        {
+          "type": "scent",
+          "settings": {
+            "number": "N\u00b001",
+            "name": "Soft Bloom",
+            "note": "Sand, Soft, Comforting",
+            "cta_label": "Shop Now"
+          }
+        },
+        {
+          "type": "scent",
+          "settings": {
+            "number": "N\u00b002",
+            "name": "Warm Skin",
+            "note": "Amber, Skin, Grounding",
+            "cta_label": "Shop Now"
+          }
+        },
+        {
+          "type": "scent",
+          "settings": {
+            "number": "N\u00b003",
+            "name": "Bare Linen",
+            "note": "Clean, Light, Airy",
+            "cta_label": "Shop Now"
+          }
+        },
+        {
+          "type": "scent",
+          "settings": {
+            "number": "N\u00b004",
+            "name": "Night Ritual",
+            "note": "Deep, Quiet, Settling",
+            "cta_label": "Shop Now"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

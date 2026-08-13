@@ -1,0 +1,53 @@
+{
+  "general": {
+    "brand": "Elora",
+    "tagline": "Your everyday beauty ritual."
+  },
+  "header": {
+    "home": "Home",
+    "cart": "Bag",
+    "menu": "Menu",
+    "account": "Account",
+    "search": "Search"
+  },
+  "accessibility": {
+    "skip_to_content": "Skip to content"
+  },
+  "cart": {
+    "empty": "Your bag is empty. Start your everyday ritual.",
+    "ritual_property": "Elora Ritual",
+    "title": "Your Bag",
+    "checkout": "Checkout",
+    "quantity": "Quantity",
+    "remove": "Remove",
+    "subtotal": "Subtotal",
+    "update": "Update",
+    "product": "Product",
+    "price": "Price",
+    "total": "Total",
+    "your_bag": "Your Bag"
+  },
+  "products": {
+    "add_to_cart": "Add to bag",
+    "quantity": "Quantity",
+    "sold_out": "Sold out",
+    "variant": "Size",
+    "price": "Price"
+  },
+  "collections": {
+    "empty": "Nothing here yet. Explore another ritual.",
+    "title": "Collection"
+  },
+  "featured_collection": {
+    "empty": "Choose a collection to feature.",
+    "view_all": "View {{ title }}"
+  },
+  "footer": {
+    "copyright": "© {{ year }} {{ shop_name }}",
+    "navigation": "Footer navigation"
+  },
+  "ingredient_honesty": {
+    "in": "What's in.",
+    "never": "What's never in."
+  }
+}

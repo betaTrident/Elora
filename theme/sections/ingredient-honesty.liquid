@@ -1,0 +1,208 @@
+<section class="ingredient-honesty">
+  <div class="ingredient-honesty__inner page-width">
+    {%- if section.settings.heading != blank -%}
+      <h2 class="ingredient-honesty__heading reveal">{{ section.settings.heading | escape }}</h2>
+    {%- endif -%}
+
+    {%- assign in_blocks = section.blocks | where: 'settings.type', 'in' -%}
+    {%- assign never_blocks = section.blocks | where: 'settings.type', 'never' -%}
+
+    <div class="ingredient-honesty__cols">
+      <div class="ingredient-honesty__col">
+        <span class="ingredient-honesty__col-label">What's in.</span>
+        <ul class="ingredient-honesty__list" role="list">
+          {%- for block in in_blocks -%}
+            {%- if block.settings.ingredient != blank -%}
+              <li {{ block.shopify_attributes }}>{{ block.settings.ingredient | escape }}</li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </div>
+
+      <div class="ingredient-honesty__col">
+        <span class="ingredient-honesty__col-label">What's never in.</span>
+        <ul class="ingredient-honesty__list" role="list">
+          {%- for block in never_blocks -%}
+            {%- if block.settings.ingredient != blank -%}
+              <li {{ block.shopify_attributes }}>{{ block.settings.ingredient | escape }}</li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% stylesheet %}
+  .ingredient-honesty {
+    padding: var(--spacing-section) 0;
+    background: var(--color-surface);
+  }
+
+  .ingredient-honesty__heading {
+    margin: 0 0 var(--spacing-xl);
+    font-size: clamp(1.6rem, 3.2vw, 2.5rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .ingredient-honesty__cols {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-xl);
+  }
+
+  @media (min-width: 600px) {
+    .ingredient-honesty__cols {
+      grid-template-columns: 1fr 1fr;
+      gap: var(--spacing-2xl);
+    }
+  }
+
+  .ingredient-honesty__col-label {
+    display: block;
+    margin-bottom: var(--spacing-md);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--color-ink);
+  }
+
+  .ingredient-honesty__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .ingredient-honesty__list li {
+    padding: 0.55rem 0;
+    font-size: 1.0625rem;
+    color: var(--color-ink);
+    border-bottom: 1px solid var(--color-sand);
+    line-height: 1.4;
+  }
+
+  .ingredient-honesty__list li:first-child {
+    border-top: 1px solid var(--color-sand);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Ingredient honesty",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "What's in. What's never in."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "ingredient",
+      "name": "Ingredient",
+      "settings": [
+        {
+          "type": "select",
+          "id": "type",
+          "label": "Type",
+          "options": [
+            { "value": "in", "label": "In" },
+            { "value": "never", "label": "Never" }
+          ],
+          "default": "in"
+        },
+        {
+          "type": "text",
+          "id": "ingredient",
+          "label": "Ingredient name"
+        },
+        {
+          "type": "text",
+          "id": "note",
+          "label": "Note"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Ingredient honesty",
+      "blocks": [
+        {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Niacinamide"
+          }
+        },
+        {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Hyaluronic Acid"
+          }
+        },
+        {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Ceramides"
+          }
+        },
+        {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Squalane"
+          }
+        },
+        {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Centella Asiatica"
+          }
+        },
+        {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Parabens"
+          }
+        },
+        {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Sulphates"
+          }
+        },
+        {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Phthalates"
+          }
+        },
+        {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Mineral Oil"
+          }
+        },
+        {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Synthetic Fragrance"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

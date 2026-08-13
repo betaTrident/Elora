@@ -1,0 +1,40 @@
+{% doc %}
+Renders the Elora wordmark and tagline for header and footer.
+@example
+{% render 'brand-lockup' %}
+{% enddoc %}
+
+<a href="{{ routes.root_url }}" class="brand-lockup" aria-label="Elora - Your everyday beauty ritual.">
+  <span class="brand-lockup__name">Elora</span>
+  <span class="brand-lockup__tagline">Your everyday beauty ritual.</span>
+</a>
+
+{% stylesheet %}
+  .brand-lockup {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    text-decoration: none;
+    color: var(--color-ink);
+    transition: opacity var(--transition-fast);
+  }
+
+  .brand-lockup:hover {
+    opacity: 0.75;
+  }
+
+  .brand-lockup__name {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+
+  .brand-lockup__tagline {
+    font-size: 0.72rem;
+    color: var(--color-muted);
+    letter-spacing: 0.07em;
+    font-family: var(--font-body);
+    font-weight: 400;
+  }
+{% endstylesheet %}

@@ -1,0 +1,156 @@
+<section class="hero" style="--hero-bg: {{ section.settings.bg_color }};">
+  <div class="hero__inner page-width">
+    <div class="hero__text">
+      {%- if section.settings.eyebrow != blank -%}
+        <p class="hero__eyebrow">{{ section.settings.eyebrow | escape }}</p>
+      {%- endif -%}
+      {%- if section.settings.heading != blank -%}
+        <h1 class="hero__heading reveal">{{ section.settings.heading }}</h1>
+      {%- endif -%}
+      {%- if section.settings.body != blank -%}
+        <div class="hero__body reveal reveal-delay-1">{{ section.settings.body }}</div>
+      {%- endif -%}
+      {%- if section.settings.cta_label != blank and section.settings.cta_url != blank -%}
+        <a href="{{ section.settings.cta_url }}" class="btn reveal reveal-delay-2">{{ section.settings.cta_label | escape }}</a>
+      {%- endif -%}
+    </div>
+    {%- if section.settings.image -%}
+      <div class="hero__image reveal reveal-delay-1">
+        {{ section.settings.image | image_url: width: 1000 | image_tag: loading: 'eager', class: 'hero__img', alt: section.settings.image.alt }}
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% stylesheet %}
+  .hero {
+    background-color: var(--hero-bg, var(--color-porcelain));
+    background-image: radial-gradient(
+      ellipse 80% 60% at 65% 40%,
+      rgba(232, 207, 196, 0.45) 0%,
+      transparent 70%
+    );
+    padding: var(--spacing-2xl) 0 var(--spacing-section);
+    overflow: hidden;
+  }
+
+  .hero__inner {
+    display: grid;
+    gap: var(--spacing-xl);
+    align-items: center;
+  }
+
+  @media (min-width: 768px) {
+    .hero__inner:has(.hero__image) {
+      grid-template-columns: 58fr 42fr;
+      gap: var(--spacing-2xl);
+    }
+  }
+
+  .hero__eyebrow {
+    margin: 0 0 var(--spacing-md);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1rem;
+    letter-spacing: 0.01em;
+    color: var(--color-sage);
+  }
+
+  .hero__heading,
+  .hero__heading p {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(2.75rem, 6.5vw, 5.25rem);
+    line-height: 1.06;
+    letter-spacing: -0.03em;
+    color: var(--color-ink);
+    text-wrap: balance;
+  }
+
+  .hero__body {
+    margin-top: var(--spacing-md);
+    max-width: 44ch;
+    color: var(--color-muted);
+    line-height: 1.68;
+    font-size: 1.0625rem;
+  }
+
+  .hero__body p {
+    margin: 0;
+  }
+
+  .hero .btn {
+    margin-top: var(--spacing-lg);
+  }
+
+  .hero__image {
+    position: relative;
+  }
+
+  .hero__img {
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    border-radius: var(--radius-lg);
+    background: var(--color-sand);
+    box-shadow: var(--shadow-lg);
+  }
+
+  @media (min-width: 768px) {
+    .hero__image {
+      margin-block: calc(-1 * var(--spacing-2xl));
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Hero editorial",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Elora"
+    },
+    {
+      "type": "richtext",
+      "id": "heading",
+      "label": "Heading",
+      "default": "<p>Your everyday beauty ritual.</p>"
+    },
+    {
+      "type": "richtext",
+      "id": "body",
+      "label": "Body"
+    },
+    {
+      "type": "text",
+      "id": "cta_label",
+      "label": "CTA label"
+    },
+    {
+      "type": "url",
+      "id": "cta_url",
+      "label": "CTA URL"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image"
+    },
+    {
+      "type": "color",
+      "id": "bg_color",
+      "label": "Background",
+      "default": "#F6EFE8"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Hero editorial"
+    }
+  ]
+}
+{% endschema %}

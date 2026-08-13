@@ -1,0 +1,54 @@
+<section class="featured-collection page-width">
+  {%- if section.settings.title != blank -%}
+    <h2 class="featured-collection__title reveal">{{ section.settings.title | escape }}</h2>
+  {%- endif -%}
+
+  {%- assign featured = section.settings.collection -%}
+  {%- if featured != blank -%}
+    <ul class="product-grid" role="list">
+      {%- for product in featured.products limit: section.settings.products_to_show -%}
+        <li>{% render 'product-card', product: product %}</li>
+      {%- endfor -%}
+    </ul>
+    {%- if featured.url != blank -%}
+      <div class="featured-collection__footer reveal">
+        <a href="{{ featured.url }}" class="btn btn--secondary">{{ 'featured_collection.view_all' | t: title: featured.title }}</a>
+      </div>
+    {%- endif -%}
+  {%- else -%}
+    <p class="featured-collection__empty">{{ 'featured_collection.empty' | t }}</p>
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Featured collection",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Heading",
+      "default": "The ritual wardrobe"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection"
+    },
+    {
+      "type": "range",
+      "id": "products_to_show",
+      "label": "Products to show",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "default": 8
+    }
+  ],
+  "presets": [
+    {
+      "name": "Featured collection"
+    }
+  ]
+}
+{% endschema %}
