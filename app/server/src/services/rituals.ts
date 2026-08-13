@@ -1,8 +1,15 @@
-import { ShopContext } from '../shopify/auth'
+import { eq, and, asc } from 'drizzle-orm'
+import { db } from '../db/client'
+import { rituals, ritualComponents, shopSettings } from '../db/schema'
+import type { ShopContext } from '../shopify/auth'
+import { calculateHealthScore, type ComponentInput } from './scoring'
+import { logActivity } from './activity'
+import { fetchInventory } from '../shopify/graphql'
 
 export interface RitualComponent {
   shopifyProductId: string
-  shopifyVariantId?: string
+  shopifyVariantId?: string | null
+  productTitleCache?: string
   role: 'cleanse' | 'treat' | 'seal' | 'scent'
   quantity: number
   unitCost?: number
@@ -16,65 +23,275 @@ export interface CreateRitualBody {
   components: RitualComponent[]
 }
 
-function notFound(id: string): void {
-  if (id === 'missing') {
-    throw Object.assign(new Error('Not found'), { status: 404 })
+function notFound(): void {
+  throw Object.assign(new Error('Not found'), { status: 404 })
+}
+
+async function fetchInventorySafe(shop: ShopContext, productIds: string[]) {
+  try {
+    return await fetchInventory(shop, productIds)
+  } catch (err) {
+    console.error('fetchInventory failed:', err)
+    return []
   }
 }
 
-function mockRitual(shopId: string, id: string, body?: Partial<CreateRitualBody>) {
+function mapComponentRow(row: typeof ritualComponents.$inferSelect) {
   return {
-    id,
-    shopId,
-    title: body?.title ?? 'Mock Ritual',
-    description: body?.description ?? null,
-    score: 80,
-    breakdown: {},
-    threshold: body?.scoreThreshold ?? 70,
-    status: 'active' as const,
-    components: body?.components ?? [
-      {
-        shopifyProductId: 'gid://shopify/Product/456',
-        role: 'cleanse' as const,
-        quantity: 1,
-        sortOrder: 0,
-      },
-    ],
+    id: row.id,
+    shopifyProductId: row.shopifyProductId,
+    shopifyVariantId: row.shopifyVariantId,
+    productTitleCache: row.productTitleCache,
+    role: row.role,
+    quantity: row.quantity,
+    unitCost: row.unitCost != null ? Number(row.unitCost) : undefined,
+    sortOrder: row.sortOrder,
   }
 }
 
-export async function listRituals(_shopId: string, status?: string) {
-  void status
-  return [mockRitual(_shopId, 'mock-ritual-id')]
+function buildComponentRows(ritualId: string, components: RitualComponent[]) {
+  return components.map((c, i) => ({
+    id: crypto.randomUUID(),
+    ritualId,
+    shopifyProductId: c.shopifyProductId,
+    shopifyVariantId: c.shopifyVariantId ?? null,
+    productTitleCache: c.productTitleCache ?? null,
+    role: c.role,
+    quantity: c.quantity,
+    unitCost: c.unitCost != null ? String(c.unitCost) : null,
+    sortOrder: c.sortOrder ?? i,
+  }))
 }
 
-export async function createRitual(_shop: ShopContext, body: CreateRitualBody) {
-  return {
-    id: 'mock-ritual-id',
-    score: 80,
-    breakdown: {},
-    threshold: body.scoreThreshold ?? 70,
-  }
+function toScoreComponents(
+  rows: Array<{
+    role: RitualComponent['role']
+    shopifyProductId: string
+    shopifyVariantId?: string | null
+    unitCost?: string | number | null
+  }>,
+): ComponentInput[] {
+  return rows.map(row => ({
+    role: row.role,
+    shopifyProductId: row.shopifyProductId,
+    shopifyVariantId: row.shopifyVariantId,
+    unitCost: row.unitCost != null ? Number(row.unitCost) : null,
+  }))
+}
+
+type DbExecutor = Pick<typeof db, 'insert' | 'update' | 'delete'>
+
+async function scoreRitual(
+  tx: DbExecutor,
+  shop: ShopContext,
+  ritualId: string,
+  componentRows: ReturnType<typeof buildComponentRows>,
+  productIds: string[],
+) {
+  const inventory = await fetchInventorySafe(shop, productIds)
+  const { score, breakdown } = calculateHealthScore(toScoreComponents(componentRows), inventory)
+  await tx
+    .update(rituals)
+    .set({ lastScore: score, lastScoredAt: new Date() })
+    .where(eq(rituals.id, ritualId))
+  return { score, breakdown }
+}
+
+export async function listRituals(shopId: string, status?: string) {
+  const filterStatus = (status ?? 'active') as 'active' | 'archived'
+  const rows = await db
+    .select()
+    .from(rituals)
+    .where(and(eq(rituals.shopId, shopId), eq(rituals.status, filterStatus)))
+
+  return rows.map(r => ({
+    id: r.id,
+    title: r.title,
+    lastScore: r.lastScore,
+    scoreThreshold: r.scoreThreshold,
+    lastScoredAt: r.lastScoredAt,
+    status: r.status,
+    description: r.description,
+  }))
 }
 
 export async function getRitual(shopId: string, id: string) {
-  notFound(id)
-  return mockRitual(shopId, id)
+  const [ritual] = await db
+    .select()
+    .from(rituals)
+    .where(and(eq(rituals.shopId, shopId), eq(rituals.id, id)))
+    .limit(1)
+
+  if (!ritual) {
+    notFound()
+  }
+
+  const components = await db
+    .select()
+    .from(ritualComponents)
+    .where(eq(ritualComponents.ritualId, id))
+    .orderBy(asc(ritualComponents.sortOrder))
+
+  return {
+    id: ritual.id,
+    title: ritual.title,
+    description: ritual.description,
+    lastScore: ritual.lastScore,
+    scoreThreshold: ritual.scoreThreshold,
+    lastScoredAt: ritual.lastScoredAt,
+    status: ritual.status,
+    components: components.map(mapComponentRow),
+  }
 }
 
-export async function updateRitual(shop: ShopContext, id: string, body: CreateRitualBody) {
-  notFound(id)
-  return mockRitual(shop.shopId, id, body)
+export async function createRitual(shop: ShopContext, input: CreateRitualBody) {
+  const [settings] = await db
+    .select()
+    .from(shopSettings)
+    .where(eq(shopSettings.shopId, shop.shopId))
+    .limit(1)
+  const threshold = input.scoreThreshold ?? settings?.defaultThreshold ?? 70
+
+  return db.transaction(async tx => {
+    const id = crypto.randomUUID()
+    await tx.insert(rituals).values({
+      id,
+      shopId: shop.shopId,
+      title: input.title,
+      description: input.description ?? null,
+      scoreThreshold: threshold,
+    })
+
+    const componentRows = buildComponentRows(id, input.components)
+    await tx.insert(ritualComponents).values(componentRows)
+
+    const productIds = input.components.map(c => c.shopifyProductId)
+    const { score, breakdown } = await scoreRitual(tx, shop, id, componentRows, productIds)
+
+    await logActivity(tx, {
+      shopId: shop.shopId,
+      actorType: 'merchant',
+      actorId: shop.userId ?? undefined,
+      action: 'ritual.created',
+      entityType: 'ritual',
+      entityId: id,
+      summary: `Created routine "${input.title}"`,
+      afterJson: { score, threshold },
+    })
+
+    return { id, score, breakdown, threshold }
+  })
+}
+
+export async function updateRitual(shop: ShopContext, id: string, input: CreateRitualBody) {
+  const [existing] = await db
+    .select()
+    .from(rituals)
+    .where(and(eq(rituals.shopId, shop.shopId), eq(rituals.id, id)))
+    .limit(1)
+
+  if (!existing) {
+    notFound()
+  }
+
+  const threshold = input.scoreThreshold ?? existing.scoreThreshold
+
+  return db.transaction(async tx => {
+    await tx
+      .update(rituals)
+      .set({
+        title: input.title,
+        description: input.description ?? null,
+        scoreThreshold: threshold,
+      })
+      .where(eq(rituals.id, id))
+
+    await tx.delete(ritualComponents).where(eq(ritualComponents.ritualId, id))
+
+    const componentRows = buildComponentRows(id, input.components)
+    await tx.insert(ritualComponents).values(componentRows)
+
+    const productIds = input.components.map(c => c.shopifyProductId)
+    const { score, breakdown } = await scoreRitual(tx, shop, id, componentRows, productIds)
+
+    await logActivity(tx, {
+      shopId: shop.shopId,
+      actorType: 'merchant',
+      actorId: shop.userId ?? undefined,
+      action: 'ritual.updated',
+      entityType: 'ritual',
+      entityId: id,
+      summary: `Updated routine "${input.title}"`,
+      afterJson: { score, threshold },
+    })
+
+    return { id, score, breakdown, threshold }
+  })
 }
 
 export async function archiveRitual(shop: ShopContext, id: string) {
-  notFound(id)
+  const [existing] = await db
+    .select()
+    .from(rituals)
+    .where(and(eq(rituals.shopId, shop.shopId), eq(rituals.id, id)))
+    .limit(1)
+
+  if (!existing) {
+    notFound()
+  }
+
+  await db
+    .update(rituals)
+    .set({ status: 'archived' })
+    .where(and(eq(rituals.shopId, shop.shopId), eq(rituals.id, id)))
+
+  await logActivity(db, {
+    shopId: shop.shopId,
+    actorType: 'merchant',
+    actorId: shop.userId ?? undefined,
+    action: 'ritual.archived',
+    entityType: 'ritual',
+    entityId: id,
+    summary: `Archived routine "${existing.title}"`,
+  })
 }
 
-export async function recalculateRitual(_shop: ShopContext, id: string) {
-  notFound(id)
-  return {
-    score: 80,
-    breakdown: { availability: 40, completeness: 20, margin: 15 },
+export async function recalculateRitual(shop: ShopContext, id: string) {
+  const [ritual] = await db
+    .select()
+    .from(rituals)
+    .where(and(eq(rituals.shopId, shop.shopId), eq(rituals.id, id)))
+    .limit(1)
+
+  if (!ritual) {
+    notFound()
   }
+
+  const components = await db
+    .select()
+    .from(ritualComponents)
+    .where(eq(ritualComponents.ritualId, id))
+    .orderBy(asc(ritualComponents.sortOrder))
+
+  const productIds = components.map(c => c.shopifyProductId)
+  const inventory = await fetchInventorySafe(shop, productIds)
+  const { score, breakdown } = calculateHealthScore(toScoreComponents(components), inventory)
+
+  await db
+    .update(rituals)
+    .set({ lastScore: score, lastScoredAt: new Date() })
+    .where(and(eq(rituals.id, id), eq(rituals.shopId, shop.shopId)))
+
+  await logActivity(db, {
+    shopId: shop.shopId,
+    actorType: 'merchant',
+    actorId: shop.userId ?? undefined,
+    action: 'ritual.recalculated',
+    entityType: 'ritual',
+    entityId: id,
+    summary: `Recalculated routine "${ritual.title}"`,
+    afterJson: { score },
+  })
+
+  return { score, breakdown }
 }

@@ -1,0 +1,1621 @@
+﻿# Review package: HEAD..WORKING_TREE (Phase 7 uncommitted)
+
+## Commits
+(none)
+
+## Files changed
+
+ M app/server/src/__tests__/api.test.ts
+ M app/server/src/routes/rituals.ts
+ M app/server/src/services/rituals.ts
+ M app/web/src/pages/Rituals/RitualForm/index.tsx
+ M app/web/src/pages/Rituals/index.tsx
+ M app/web/src/types/index.ts
+ M app/web/src/vite-env.d.ts
+?? app/server/src/services/activity.ts
+?? app/server/src/services/rituals.test.ts
+?? app/server/src/services/scoring.test.ts
+?? app/server/src/services/scoring.ts
+?? app/server/src/shopify/graphql.ts
+?? app/web/src/pages/Rituals/RitualForm/ComponentList.tsx
+?? app/web/src/pages/Rituals/RitualForm/ComponentRow.tsx
+?? app/web/src/pages/Rituals/RitualForm/__tests__/
+?? app/web/src/pages/Rituals/__tests__/
+
+## Diff (tracked)
+
+diff --git a/app/server/src/__tests__/api.test.ts b/app/server/src/__tests__/api.test.ts
+index 162a62d..ce5567a 100644
+--- a/app/server/src/__tests__/api.test.ts
++++ b/app/server/src/__tests__/api.test.ts
+@@ -124,36 +124,57 @@ describe('POST /api/rituals', () => {
+   it('returns 400 for empty body', async () => {
+     const res = await authRequest('post', '/api/rituals').send({})
+     expect(res.status).toBe(400)
+     expect(res.body.error).toBe('Validation failed')
+     expect(res.body.issues).toBeDefined()
+   })
+ 
+   it('returns 201 for valid body', async () => {
++    vi.spyOn(ritualsService, 'createRitual').mockResolvedValueOnce({
++      id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
++      score: 65,
++      breakdown: {
++        availability: 50,
++        availabilityMax: 50,
++        completeness: 7,
++        completenessMax: 20,
++        margin: 15,
++        marginMax: 30,
++        total: 65,
++        factors: [],
++      },
++      threshold: 70,
++    })
+     const res = await authRequest('post', '/api/rituals').send(validRitualBody)
+     expect(res.status).toBe(201)
+     expect(res.body).toMatchObject({
+-      id: 'mock-ritual-id',
+-      score: 80,
++      score: 65,
+       threshold: 70,
+     })
++    expect(res.body.id).toMatch(/^[0-9a-f-]{36}$/i)
+   })
+ })
+ 
+ describe('GET /api/rituals/:id', () => {
+   it('returns 404 when id is missing', async () => {
++    vi.spyOn(ritualsService, 'getRitual').mockRejectedValueOnce(
++      Object.assign(new Error('Not found'), { status: 404 }),
++    )
+     const res = await authRequest('get', '/api/rituals/missing')
+     expect(res.status).toBe(404)
+     expect(res.body).toEqual({ error: 'Not found' })
+   })
+ })
+ 
+ describe('PUT /api/rituals/:id', () => {
+   it('returns 404 when id is missing', async () => {
++    vi.spyOn(ritualsService, 'updateRitual').mockRejectedValueOnce(
++      Object.assign(new Error('Not found'), { status: 404 }),
++    )
+     const res = await authRequest('put', '/api/rituals/missing').send(validRitualBody)
+     expect(res.status).toBe(404)
+     expect(res.body).toEqual({ error: 'Not found' })
+   })
+ })
+ 
+ describe('PUT /api/settings', () => {
+   it('returns 400 when defaultThreshold is out of range', async () => {
+diff --git a/app/server/src/routes/rituals.ts b/app/server/src/routes/rituals.ts
+index ef5f908..eef166f 100644
+--- a/app/server/src/routes/rituals.ts
++++ b/app/server/src/routes/rituals.ts
+@@ -1,17 +1,18 @@
+ import { Router } from 'express'
+ import { z } from 'zod'
+ import * as ritualsService from '../services/rituals'
+ 
+ const router = Router()
+ 
+ const componentSchema = z.object({
+   shopifyProductId: z.string().min(1),
+-  shopifyVariantId: z.string().optional(),
++  shopifyVariantId: z.string().nullable().optional(),
++  productTitleCache: z.string().max(255).optional(),
+   role: z.enum(['cleanse', 'treat', 'seal', 'scent']),
+   quantity: z.number().int().min(1).default(1),
+   unitCost: z.number().nonnegative().optional(),
+   sortOrder: z.number().int().default(0),
+ })
+ 
+ const createSchema = z.object({
+   title: z.string().min(1).max(120),
+diff --git a/app/server/src/services/rituals.ts b/app/server/src/services/rituals.ts
+index bb96a17..7abc159 100644
+--- a/app/server/src/services/rituals.ts
++++ b/app/server/src/services/rituals.ts
+@@ -1,80 +1,283 @@
+-import { ShopContext } from '../shopify/auth'
++import { eq, and, asc } from 'drizzle-orm'
++import { db } from '../db/client'
++import { rituals, ritualComponents, shopSettings } from '../db/schema'
++import type { ShopContext } from '../shopify/auth'
++import { calculateHealthScore, type ComponentInput } from './scoring'
++import { logActivity } from './activity'
++import { fetchInventory } from '../shopify/graphql'
+ 
+ export interface RitualComponent {
+   shopifyProductId: string
+-  shopifyVariantId?: string
++  shopifyVariantId?: string | null
++  productTitleCache?: string
+   role: 'cleanse' | 'treat' | 'seal' | 'scent'
+   quantity: number
+   unitCost?: number
+   sortOrder: number
+ }
+ 
+ export interface CreateRitualBody {
+   title: string
+   description?: string
+   scoreThreshold?: number
+   components: RitualComponent[]
+ }
+ 
+-function notFound(id: string): void {
+-  if (id === 'missing') {
+-    throw Object.assign(new Error('Not found'), { status: 404 })
++function notFound(): void {
++  throw Object.assign(new Error('Not found'), { status: 404 })
++}
++
++async function fetchInventorySafe(shop: ShopContext, productIds: string[]) {
++  try {
++    return await fetchInventory(shop, productIds)
++  } catch (err) {
++    console.error('fetchInventory failed:', err)
++    return []
+   }
+ }
+ 
+-function mockRitual(shopId: string, id: string, body?: Partial<CreateRitualBody>) {
++function mapComponentRow(row: typeof ritualComponents.$inferSelect) {
+   return {
+-    id,
+-    shopId,
+-    title: body?.title ?? 'Mock Ritual',
+-    description: body?.description ?? null,
+-    score: 80,
+-    breakdown: {},
+-    threshold: body?.scoreThreshold ?? 70,
+-    status: 'active' as const,
+-    components: body?.components ?? [
+-      {
+-        shopifyProductId: 'gid://shopify/Product/456',
+-        role: 'cleanse' as const,
+-        quantity: 1,
+-        sortOrder: 0,
+-      },
+-    ],
++    id: row.id,
++    shopifyProductId: row.shopifyProductId,
++    shopifyVariantId: row.shopifyVariantId,
++    productTitleCache: row.productTitleCache,
++    role: row.role,
++    quantity: row.quantity,
++    unitCost: row.unitCost != null ? Number(row.unitCost) : undefined,
++    sortOrder: row.sortOrder,
+   }
+ }
+ 
+-export async function listRituals(_shopId: string, status?: string) {
+-  void status
+-  return [mockRitual(_shopId, 'mock-ritual-id')]
++function buildComponentRows(ritualId: string, components: RitualComponent[]) {
++  return components.map((c, i) => ({
++    id: crypto.randomUUID(),
++    ritualId,
++    shopifyProductId: c.shopifyProductId,
++    shopifyVariantId: c.shopifyVariantId ?? null,
++    productTitleCache: c.productTitleCache ?? null,
++    role: c.role,
++    quantity: c.quantity,
++    unitCost: c.unitCost != null ? String(c.unitCost) : null,
++    sortOrder: c.sortOrder ?? i,
++  }))
++}
++
++function toScoreComponents(
++  rows: Array<{
++    role: RitualComponent['role']
++    shopifyProductId: string
++    shopifyVariantId?: string | null
++    unitCost?: string | number | null
++  }>,
++): ComponentInput[] {
++  return rows.map(row => ({
++    role: row.role,
++    shopifyProductId: row.shopifyProductId,
++    shopifyVariantId: row.shopifyVariantId,
++    unitCost: row.unitCost != null ? Number(row.unitCost) : null,
++  }))
++}
++
++type DbExecutor = Pick<typeof db, 'insert' | 'update' | 'delete'>
++
++async function scoreRitual(
++  tx: DbExecutor,
++  shop: ShopContext,
++  ritualId: string,
++  componentRows: ReturnType<typeof buildComponentRows>,
++  productIds: string[],
++) {
++  const inventory = await fetchInventorySafe(shop, productIds)
++  const { score, breakdown } = calculateHealthScore(toScoreComponents(componentRows), inventory)
++  await tx
++    .update(rituals)
++    .set({ lastScore: score, lastScoredAt: new Date() })
++    .where(eq(rituals.id, ritualId))
++  return { score, breakdown }
++}
++
++export async function listRituals(shopId: string, status?: string) {
++  const filterStatus = (status ?? 'active') as 'active' | 'archived'
++  const rows = await db
++    .select()
++    .from(rituals)
++    .where(and(eq(rituals.shopId, shopId), eq(rituals.status, filterStatus)))
++
++  return rows.map(r => ({
++    id: r.id,
++    title: r.title,
++    lastScore: r.lastScore,
++    scoreThreshold: r.scoreThreshold,
++    lastScoredAt: r.lastScoredAt,
++    status: r.status,
++    description: r.description,
++  }))
+ }
+ 
+-export async function createRitual(_shop: ShopContext, body: CreateRitualBody) {
++export async function getRitual(shopId: string, id: string) {
++  const [ritual] = await db
++    .select()
++    .from(rituals)
++    .where(and(eq(rituals.shopId, shopId), eq(rituals.id, id)))
++    .limit(1)
++
++  if (!ritual) {
++    notFound()
++  }
++
++  const components = await db
++    .select()
++    .from(ritualComponents)
++    .where(eq(ritualComponents.ritualId, id))
++    .orderBy(asc(ritualComponents.sortOrder))
++
+   return {
+-    id: 'mock-ritual-id',
+-    score: 80,
+-    breakdown: {},
+-    threshold: body.scoreThreshold ?? 70,
++    id: ritual.id,
++    title: ritual.title,
++    description: ritual.description,
++    lastScore: ritual.lastScore,
++    scoreThreshold: ritual.scoreThreshold,
++    lastScoredAt: ritual.lastScoredAt,
++    status: ritual.status,
++    components: components.map(mapComponentRow),
+   }
+ }
+ 
+-export async function getRitual(shopId: string, id: string) {
+-  notFound(id)
+-  return mockRitual(shopId, id)
++export async function createRitual(shop: ShopContext, input: CreateRitualBody) {
++  const [settings] = await db
++    .select()
++    .from(shopSettings)
++    .where(eq(shopSettings.shopId, shop.shopId))
++    .limit(1)
++  const threshold = input.scoreThreshold ?? settings?.defaultThreshold ?? 70
++
++  return db.transaction(async tx => {
++    const id = crypto.randomUUID()
++    await tx.insert(rituals).values({
++      id,
++      shopId: shop.shopId,
++      title: input.title,
++      description: input.description ?? null,
++      scoreThreshold: threshold,
++    })
++
++    const componentRows = buildComponentRows(id, input.components)
++    await tx.insert(ritualComponents).values(componentRows)
++
++    const productIds = input.components.map(c => c.shopifyProductId)
++    const { score, breakdown } = await scoreRitual(tx, shop, id, componentRows, productIds)
++
++    await logActivity(tx, {
++      shopId: shop.shopId,
++      actorType: 'merchant',
++      actorId: shop.userId ?? undefined,
++      action: 'ritual.created',
++      entityType: 'ritual',
++      entityId: id,
++      summary: `Created ritual "${input.title}"`,
++      afterJson: { score, threshold },
++    })
++
++    return { id, score, breakdown, threshold }
++  })
+ }
+ 
+-export async function updateRitual(shop: ShopContext, id: string, body: CreateRitualBody) {
+-  notFound(id)
+-  return mockRitual(shop.shopId, id, body)
++export async function updateRitual(shop: ShopContext, id: string, input: CreateRitualBody) {
++  const [existing] = await db
++    .select()
++    .from(rituals)
++    .where(and(eq(rituals.shopId, shop.shopId), eq(rituals.id, id)))
++    .limit(1)
++
++  if (!existing) {
++    notFound()
++  }
++
++  const threshold = input.scoreThreshold ?? existing.scoreThreshold
++
++  return db.transaction(async tx => {
++    await tx
++      .update(rituals)
++      .set({
++        title: input.title,
++        description: input.description ?? null,
++        scoreThreshold: threshold,
++      })
++      .where(eq(rituals.id, id))
++
++    await tx.delete(ritualComponents).where(eq(ritualComponents.ritualId, id))
++
++    const componentRows = buildComponentRows(id, input.components)
++    await tx.insert(ritualComponents).values(componentRows)
++
++    const productIds = input.components.map(c => c.shopifyProductId)
++    const { score, breakdown } = await scoreRitual(tx, shop, id, componentRows, productIds)
++
++    await logActivity(tx, {
++      shopId: shop.shopId,
++      actorType: 'merchant',
++      actorId: shop.userId ?? undefined,
++      action: 'ritual.updated',
++      entityType: 'ritual',
++      entityId: id,
++      summary: `Updated ritual "${input.title}"`,
++      afterJson: { score, threshold },
++    })
++
++    return { id, score, breakdown, threshold }
++  })
+ }
+ 
+ export async function archiveRitual(shop: ShopContext, id: string) {
+-  notFound(id)
++  const [existing] = await db
++    .select()
++    .from(rituals)
++    .where(and(eq(rituals.shopId, shop.shopId), eq(rituals.id, id)))
++    .limit(1)
++
++  if (!existing) {
++    notFound()
++  }
++
++  await db.update(rituals).set({ status: 'archived' }).where(eq(rituals.id, id))
++
++  await logActivity(db, {
++    shopId: shop.shopId,
++    actorType: 'merchant',
++    actorId: shop.userId ?? undefined,
++    action: 'ritual.archived',
++    entityType: 'ritual',
++    entityId: id,
++    summary: `Archived ritual "${existing.title}"`,
++  })
+ }
+ 
+-export async function recalculateRitual(_shop: ShopContext, id: string) {
+-  notFound(id)
+-  return {
+-    score: 80,
+-    breakdown: { availability: 40, completeness: 20, margin: 15 },
++export async function recalculateRitual(shop: ShopContext, id: string) {
++  const [ritual] = await db
++    .select()
++    .from(rituals)
++    .where(and(eq(rituals.shopId, shop.shopId), eq(rituals.id, id)))
++    .limit(1)
++
++  if (!ritual) {
++    notFound()
+   }
++
++  const components = await db
++    .select()
++    .from(ritualComponents)
++    .where(eq(ritualComponents.ritualId, id))
++    .orderBy(asc(ritualComponents.sortOrder))
++
++  const productIds = components.map(c => c.shopifyProductId)
++  const inventory = await fetchInventorySafe(shop, productIds)
++  const { score, breakdown } = calculateHealthScore(toScoreComponents(components), inventory)
++
++  await db
++    .update(rituals)
++    .set({ lastScore: score, lastScoredAt: new Date() })
++    .where(eq(rituals.id, id))
++
++  return { score, breakdown }
+ }
+diff --git a/app/web/src/pages/Rituals/RitualForm/index.tsx b/app/web/src/pages/Rituals/RitualForm/index.tsx
+index b2b9c75..b1149fa 100644
+--- a/app/web/src/pages/Rituals/RitualForm/index.tsx
++++ b/app/web/src/pages/Rituals/RitualForm/index.tsx
+@@ -1,19 +1,180 @@
+-import { Text } from '@shopify/polaris'
+-import { useParams } from 'react-router-dom'
++import { useEffect, useState } from 'react'
++import {
++  Banner,
++  BlockStack,
++  Layout,
++  SkeletonBodyText,
++  SkeletonPage,
++  TextField,
++} from '@shopify/polaris'
++import { useNavigate, useParams } from 'react-router-dom'
+ import { PageLayout } from '../../../components/PageLayout'
++import { ScoreBadge } from '../../../components/ScoreBadge'
++import type { RitualDetail, RitualSaveResponse } from '../../../types'
++import { api } from '../../../services/api'
++import { ComponentList } from './ComponentList'
+ 
+ export function RitualForm() {
+   const { id } = useParams<{ id?: string }>()
++  const navigate = useNavigate()
+   const isEdit = Boolean(id)
+-  const title = isEdit ? 'Edit routine' : 'Create routine'
++  const pageTitle = isEdit ? 'Edit routine' : 'Create routine'
++
++  const [title, setTitle] = useState('')
++  const [description, setDescription] = useState('')
++  const [scoreThreshold, setScoreThreshold] = useState('70')
++  const [components, setComponents] = useState<RitualDetail['components']>([])
++  const [loading, setLoading] = useState(isEdit)
++  const [submitting, setSubmitting] = useState(false)
++  const [loadError, setLoadError] = useState<Error | null>(null)
++  const [validationError, setValidationError] = useState<string | null>(null)
++  const [saveResult, setSaveResult] = useState<RitualSaveResponse | null>(null)
++
++  useEffect(() => {
++    if (!id) return
++
++    setLoading(true)
++    setLoadError(null)
++    api
++      .get<RitualDetail>(`/api/rituals/${id}`)
++      .then((ritual) => {
++        setTitle(ritual.title)
++        setDescription(ritual.description ?? '')
++        setScoreThreshold(String(ritual.scoreThreshold))
++        setComponents(ritual.components)
++      })
++      .catch((error: unknown) =>
++        setLoadError(error instanceof Error ? error : new Error(String(error))),
++      )
++      .finally(() => setLoading(false))
++  }, [id])
++
++  async function handleSubmit() {
++    setValidationError(null)
++    setSaveResult(null)
++
++    if (components.length === 0) {
++      setValidationError('Add at least one product before saving this routine.')
++      return
++    }
++
++    const body = {
++      title,
++      description,
++      scoreThreshold: Number(scoreThreshold),
++      components: components.map((component, index) => ({
++        shopifyProductId: component.shopifyProductId,
++        shopifyVariantId: component.shopifyVariantId ?? null,
++        productTitleCache: component.productTitleCache,
++        role: component.role,
++        quantity: component.quantity,
++        unitCost: component.unitCost ?? undefined,
++        sortOrder: component.sortOrder ?? index,
++      })),
++    }
++
++    setSubmitting(true)
++    try {
++      const result = isEdit
++        ? await api.put<RitualSaveResponse>(`/api/rituals/${id}`, body)
++        : await api.post<RitualSaveResponse>('/api/rituals', body)
++
++      setSaveResult(result)
++      if (!isEdit) {
++        navigate(`/rituals/${result.id}/edit`)
++      }
++    } catch (error: unknown) {
++      setValidationError(
++        error instanceof Error ? error.message : 'Failed to save routine.',
++      )
++    } finally {
++      setSubmitting(false)
++    }
++  }
++
++  if (loading) {
++    return (
++      <div aria-live="polite" aria-atomic="true">
++        <SkeletonPage primaryAction>
++          <Layout>
++            <Layout.Section>
++              <SkeletonBodyText lines={6} />
++            </Layout.Section>
++          </Layout>
++        </SkeletonPage>
++      </div>
++    )
++  }
++
++  if (loadError) {
++    return (
++      <PageLayout title={pageTitle}>
++        <Banner
++          tone="critical"
++          title="Routine failed to load"
++          action={{ content: 'Back to routines', url: '/rituals' }}
++        >
++          <p>{loadError.message}</p>
++        </Banner>
++      </PageLayout>
++    )
++  }
+ 
+   return (
+-    <PageLayout title={title}>
+-      <Text as="p" variant="bodyMd">
+-        {isEdit
+-          ? "Update an existing kit's products or scoring rules."
+-          : 'Define a new kit ΓÇö name, products, and scoring threshold. Changes are saved automatically.'}
+-      </Text>
++    <PageLayout
++      title={pageTitle}
++      primaryAction={{
++        content: 'Save',
++        onAction: () => void handleSubmit(),
++        loading: submitting,
++      }}
++    >
++      <div aria-live="polite" aria-atomic="true">
++        <BlockStack gap="400">
++          {saveResult && (
++            <Banner tone="success" title="Routine saved">
++              <BlockStack gap="200">
++                <p>
++                  Health score:{' '}
++                  <ScoreBadge
++                    score={saveResult.score}
++                    threshold={saveResult.threshold}
++                  />
++                </p>
++              </BlockStack>
++            </Banner>
++          )}
++          {validationError && (
++            <Banner tone="critical" title="Could not save routine">
++              <p>{validationError}</p>
++            </Banner>
++          )}
++          <TextField
++            label="Routine title"
++            value={title}
++            onChange={setTitle}
++            autoComplete="off"
++            requiredIndicator
++          />
++          <TextField
++            label="Description"
++            value={description}
++            onChange={setDescription}
++            autoComplete="off"
++            multiline={3}
++          />
++          <TextField
++            label="Score threshold"
++            type="number"
++            value={scoreThreshold}
++            onChange={setScoreThreshold}
++            autoComplete="off"
++            min={0}
++            max={100}
++          />
++          <ComponentList components={components} onChange={setComponents} />
++        </BlockStack>
++      </div>
+     </PageLayout>
+   )
+ }
+diff --git a/app/web/src/pages/Rituals/index.tsx b/app/web/src/pages/Rituals/index.tsx
+index 706b2fc..9cf2c56 100644
+--- a/app/web/src/pages/Rituals/index.tsx
++++ b/app/web/src/pages/Rituals/index.tsx
+@@ -1,16 +1,182 @@
+-import { Text } from '@shopify/polaris'
++import { useEffect, useState } from 'react'
++import {
++  Banner,
++  BlockStack,
++  Button,
++  IndexTable,
++  Layout,
++  Link,
++  Modal,
++  SkeletonBodyText,
++  SkeletonPage,
++  Text,
++} from '@shopify/polaris'
+ import { PageLayout } from '../../components/PageLayout'
++import { EmptyState } from '../../components/EmptyState'
++import { ScoreBadge } from '../../components/ScoreBadge'
++import type { RitualListItem } from '../../types'
++import { api } from '../../services/api'
++import { formatRelativeTime } from '../../utils/formatRelativeTime'
++
++const PRIMARY_ACTION = { content: 'Create routine', url: '/rituals/new' }
+ 
+ export function Rituals() {
++  const [rituals, setRituals] = useState<RitualListItem[]>([])
++  const [loading, setLoading] = useState(true)
++  const [error, setError] = useState<Error | null>(null)
++  const [archiveTarget, setArchiveTarget] = useState<RitualListItem | null>(null)
++  const [archiving, setArchiving] = useState(false)
++
++  function fetchRituals() {
++    setLoading(true)
++    setError(null)
++    api
++      .get<RitualListItem[]>('/api/rituals')
++      .then((items) => setRituals(items))
++      .catch((fetchError: unknown) =>
++        setError(fetchError instanceof Error ? fetchError : new Error(String(fetchError))),
++      )
++      .finally(() => setLoading(false))
++  }
++
++  useEffect(() => {
++    fetchRituals()
++  }, [])
++
++  async function handleArchiveConfirm() {
++    if (!archiveTarget) return
++
++    setArchiving(true)
++    try {
++      await api.post(`/api/rituals/${archiveTarget.id}/archive`, {})
++      setRituals((current) =>
++        current.filter((ritual) => ritual.id !== archiveTarget.id),
++      )
++      setArchiveTarget(null)
++    } catch (archiveError: unknown) {
++      setError(
++        archiveError instanceof Error
++          ? archiveError
++          : new Error('Failed to archive routine.'),
++      )
++      setArchiveTarget(null)
++    } finally {
++      setArchiving(false)
++    }
++  }
++
++  if (loading) {
++    return (
++      <div aria-live="polite" aria-atomic="true">
++        <SkeletonPage primaryAction>
++          <Layout>
++            <Layout.Section>
++              <SkeletonBodyText lines={8} />
++            </Layout.Section>
++          </Layout>
++        </SkeletonPage>
++      </div>
++    )
++  }
++
++  if (error) {
++    return (
++      <PageLayout title="Routines" primaryAction={PRIMARY_ACTION}>
++        <Banner
++          tone="critical"
++          title="Routines failed to load"
++          action={{ content: 'Retry', onAction: () => fetchRituals() }}
++        >
++          <p>{error.message}</p>
++        </Banner>
++      </PageLayout>
++    )
++  }
++
++  if (rituals.length === 0) {
++    return (
++      <PageLayout title="Routines" primaryAction={PRIMARY_ACTION}>
++        <EmptyState
++          heading="No routines yet"
++          description="Create a routine kit to start tracking product health."
++          action={{ content: 'Create routine', url: '/rituals/new' }}
++        />
++      </PageLayout>
++    )
++  }
++
+   return (
+-    <PageLayout
+-      title="Routines"
+-      primaryAction={{ content: 'Create routine', url: '/rituals/new' }}
+-    >
+-      <Text as="p" variant="bodyMd">
+-        All active routine kits appear here. Create, edit, or archive kits from
+-        this list.
+-      </Text>
++    <PageLayout title="Routines" primaryAction={PRIMARY_ACTION}>
++      <div aria-live="polite" aria-atomic="true">
++        <BlockStack gap="300">
++          <Text as="p" variant="bodyMd">
++            All active routine kits appear here. Create, edit, or archive kits from
++            this list.
++          </Text>
++          <IndexTable
++            resourceName={{ singular: 'routine', plural: 'routines' }}
++            itemCount={rituals.length}
++            headings={[
++              { title: 'Routine name' },
++              { title: 'Score' },
++              { title: 'Threshold' },
++              { title: 'Last checked' },
++              { title: 'Actions' },
++            ]}
++            selectable={false}
++          >
++            {rituals.map((ritual, index) => (
++              <IndexTable.Row key={ritual.id} id={ritual.id} position={index}>
++                <IndexTable.Cell>
++                  <Link url={`/rituals/${ritual.id}/edit`}>{ritual.title}</Link>
++                </IndexTable.Cell>
++                <IndexTable.Cell>
++                  <ScoreBadge
++                    score={ritual.lastScore}
++                    threshold={ritual.scoreThreshold}
++                  />
++                </IndexTable.Cell>
++                <IndexTable.Cell>{ritual.scoreThreshold}</IndexTable.Cell>
++                <IndexTable.Cell>
++                  {ritual.lastScoredAt
++                    ? formatRelativeTime(new Date(ritual.lastScoredAt as string))
++                    : '\u2014'}
++                </IndexTable.Cell>
++                <IndexTable.Cell>
++                  <Button
++                    variant="plain"
++                    tone="critical"
++                    onClick={() => setArchiveTarget(ritual)}
++                  >
++                    Archive
++                  </Button>
++                </IndexTable.Cell>
++              </IndexTable.Row>
++            ))}
++          </IndexTable>
++        </BlockStack>
++        <Modal
++          open={archiveTarget !== null}
++          onClose={() => setArchiveTarget(null)}
++          title="Archive routine"
++          primaryAction={{
++            content: 'Archive',
++            onAction: () => void handleArchiveConfirm(),
++            loading: archiving,
++            destructive: true,
++          }}
++          secondaryActions={[
++            { content: 'Cancel', onAction: () => setArchiveTarget(null) },
++          ]}
++        >
++          <Modal.Section>
++            <p>
++              Archive &ldquo;{archiveTarget?.title}&rdquo;? It will be removed from
++              active lists but kept in your store history.
++            </p>
++          </Modal.Section>
++        </Modal>
++      </div>
+     </PageLayout>
+   )
+ }
+diff --git a/app/web/src/types/index.ts b/app/web/src/types/index.ts
+index 9e8e405..44d3aa3 100644
+--- a/app/web/src/types/index.ts
++++ b/app/web/src/types/index.ts
+@@ -24,8 +24,49 @@ export interface ActivityLog {
+   afterJson?: unknown
+ }
+ 
+ export interface DashboardData {
+   counts: DashboardCounts
+   worst5: RitualSummary[]
+   recentActivity: ActivityLog[]
+ }
++
++export type ComponentRole = 'cleanse' | 'treat' | 'seal' | 'scent'
++
++export interface Component {
++  id?: string
++  shopifyProductId: string
++  shopifyVariantId?: string | null
++  productTitleCache?: string
++  role: ComponentRole
++  quantity: number
++  unitCost?: string | number | null
++  sortOrder?: number
++}
++
++export interface RitualListItem {
++  id: string
++  title: string
++  lastScore: number | null
++  scoreThreshold: number
++  lastScoredAt?: string | Date | null
++  status: string
++  description?: string
++}
++
++export interface RitualDetail extends RitualListItem {
++  components: Component[]
++}
++
++export interface BreakdownItem {
++  label: string
++  value: number
++  max: number
++  description: string
++}
++
++export interface RitualSaveResponse {
++  id: string
++  score: number
++  breakdown: BreakdownItem[]
++  threshold: number
++}
+diff --git a/app/web/src/vite-env.d.ts b/app/web/src/vite-env.d.ts
+index 3c1e313..b9e5177 100644
+--- a/app/web/src/vite-env.d.ts
++++ b/app/web/src/vite-env.d.ts
+@@ -1,3 +1,16 @@
+ /// <reference types="vite/client" />
+ 
+-declare const shopify: { idToken: () => Promise<string> }
++interface ResourcePickerProduct {
++  id: string
++  title: string
++  variants?: Array<{ id: string }>
++}
++
++declare const shopify: {
++  idToken: () => Promise<string>
++  resourcePicker: (options: {
++    type: 'product'
++    multiple?: boolean
++    action?: string
++  }) => Promise<ResourcePickerProduct[] | undefined>
++}
+
+--- /dev/null
++++ b/app/server/src/services/activity.ts
+
+diff --git a/app/server/src/services/activity.ts b/app/server/src/services/activity.ts
+new file mode 100644
+index 0000000..086efa2
+--- /dev/null
++++ b/app/server/src/services/activity.ts
+@@ -0,0 +1,25 @@
++import { activityLogs } from '../db/schema'
++import type { db } from '../db/client'
++
++type DbExecutor = Pick<typeof db, 'insert'>
++
++interface ActivityInput {
++  shopId: string
++  actorType: 'merchant' | 'system'
++  actorId?: string
++  action: string
++  entityType: string
++  entityId?: string
++  summary: string
++  beforeJson?: unknown
++  afterJson?: unknown
++}
++
++export async function logActivity(tx: DbExecutor, input: ActivityInput) {
++  await tx.insert(activityLogs).values({
++    id: crypto.randomUUID(),
++    ...input,
++    beforeJson: input.beforeJson ?? null,
++    afterJson: input.afterJson ?? null,
++  })
++}
+
+--- /dev/null
++++ b/app/server/src/services/rituals.test.ts
+
+diff --git a/app/server/src/services/rituals.test.ts b/app/server/src/services/rituals.test.ts
+new file mode 100644
+index 0000000..b69d7a3
+--- /dev/null
++++ b/app/server/src/services/rituals.test.ts
+@@ -0,0 +1,146 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest'
++
++const mockTransaction = vi.fn()
++const mockSelect = vi.fn()
++const mockInsert = vi.fn()
++const mockUpdate = vi.fn()
++const mockDelete = vi.fn()
++
++vi.mock('../db/client', () => ({
++  db: {
++    select: (...args: unknown[]) => mockSelect(...args),
++    insert: (...args: unknown[]) => mockInsert(...args),
++    update: (...args: unknown[]) => mockUpdate(...args),
++    delete: (...args: unknown[]) => mockDelete(...args),
++    transaction: (...args: unknown[]) => mockTransaction(...args),
++  },
++}))
++
++vi.mock('../shopify/graphql', () => ({
++  fetchInventory: vi.fn(async () => [
++    { productId: 'gid://shopify/Product/123', available: 10, status: 'ACTIVE' as const, price: '25.00' },
++  ]),
++}))
++
++import {
++  createRitual,
++  getRitual,
++  updateRitual,
++  archiveRitual,
++  listRituals,
++} from './rituals'
++import { fetchInventory } from '../shopify/graphql'
++
++const SHOP = { shopDomain: 'test.myshopify.com', shopId: 'shop-1', userId: 'user-1' }
++
++function createThenableChain<T>(result: T) {
++  const chain = {
++    from: vi.fn(),
++    where: vi.fn(),
++    orderBy: vi.fn(),
++    limit: vi.fn(),
++    then: (resolve: (value: T) => unknown, reject?: (reason: unknown) => unknown) =>
++      Promise.resolve(result).then(resolve, reject),
++  }
++  chain.from.mockReturnValue(chain)
++  chain.where.mockReturnValue(chain)
++  chain.orderBy.mockReturnValue(chain)
++  chain.limit.mockReturnValue(chain)
++  return chain
++}
++
++function stubInsert(valuesImpl = vi.fn().mockResolvedValue(undefined)) {
++  mockInsert.mockReturnValue({ values: valuesImpl })
++}
++
++function stubUpdate(setImpl = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })) {
++  mockUpdate.mockReturnValue({ set: setImpl })
++}
++
++const validBody = {
++  title: 'Morning Routine',
++  components: [
++    {
++      shopifyProductId: 'gid://shopify/Product/123',
++      role: 'cleanse' as const,
++      quantity: 1,
++      sortOrder: 0,
++    },
++  ],
++}
++
++describe('rituals service', () => {
++  beforeEach(() => {
++    vi.clearAllMocks()
++    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
++      const tx = {
++        insert: mockInsert,
++        update: mockUpdate,
++        delete: mockDelete,
++      }
++      return fn(tx)
++    })
++  })
++
++  it('createRitual inserts ritual and components and returns score', async () => {
++    const settingsQuery = createThenableChain([{ defaultThreshold: 70 }])
++    mockSelect.mockReturnValueOnce(settingsQuery)
++    stubInsert()
++    stubUpdate()
++
++    const result = await createRitual(SHOP, validBody)
++
++    expect(result.id).toMatch(/^[0-9a-f-]{36}$/i)
++    expect(result.score).toBeGreaterThan(0)
++    expect(result.threshold).toBe(70)
++    expect(result.breakdown).toBeDefined()
++    expect(mockInsert).toHaveBeenCalled()
++    expect(fetchInventory).toHaveBeenCalled()
++  })
++
++  it('getRitual returns 404 when ritual is missing', async () => {
++    const ritualQuery = createThenableChain([])
++    mockSelect.mockReturnValueOnce(ritualQuery)
++
++    await expect(getRitual(SHOP.shopId, 'missing-id')).rejects.toMatchObject({ status: 404 })
++  })
++
++  it('archiveRitual sets status archived', async () => {
++    const ritualQuery = createThenableChain([{ id: 'ritual-1', title: 'Test', status: 'active' }])
++    mockSelect.mockReturnValueOnce(ritualQuery)
++    const setFn = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
++    stubUpdate(setFn)
++    stubInsert()
++
++    await archiveRitual(SHOP, 'ritual-1')
++
++    expect(setFn).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived' }))
++  })
++
++  it('listRituals defaults to active status', async () => {
++    const ritualsQuery = createThenableChain([
++      {
++        id: 'r1',
++        title: 'Active',
++        lastScore: 80,
++        scoreThreshold: 70,
++        lastScoredAt: null,
++        status: 'active',
++        description: null,
++      },
++    ])
++    mockSelect.mockReturnValueOnce(ritualsQuery)
++
++    const result = await listRituals(SHOP.shopId)
++
++    expect(result).toHaveLength(1)
++    expect(ritualsQuery.where).toHaveBeenCalled()
++  })
++
++  it('updateRitual returns 404 when ritual is missing', async () => {
++    const ritualQuery = createThenableChain([])
++    mockSelect.mockReturnValueOnce(ritualQuery)
++
++    await expect(updateRitual(SHOP, 'missing-id', validBody)).rejects.toMatchObject({ status: 404 })
++  })
++})
+
+--- /dev/null
++++ b/app/server/src/services/scoring.test.ts
+
+diff --git a/app/server/src/services/scoring.test.ts b/app/server/src/services/scoring.test.ts
+new file mode 100644
+index 0000000..5a69ba4
+--- /dev/null
++++ b/app/server/src/services/scoring.test.ts
+@@ -0,0 +1,45 @@
++import { describe, it, expect } from 'vitest'
++import { calculateHealthScore } from './scoring'
++
++const makeInv = (productId: string, available = 10, status: 'ACTIVE' | 'DRAFT' = 'ACTIVE', price = '25.00') =>
++  ({ productId, available, status, price })
++
++const components = [
++  { role: 'cleanse' as const, shopifyProductId: 'p1' },
++  { role: 'treat' as const, shopifyProductId: 'p2' },
++  { role: 'seal' as const, shopifyProductId: 'p3' },
++]
++
++describe('calculateHealthScore', () => {
++  it('returns 100 max for fully stocked kit with costs', () => {
++    const inv = [makeInv('p1'), makeInv('p2'), makeInv('p3')]
++    const compsWithCost = components.map(c => ({ ...c, unitCost: 8 }))
++    const { score } = calculateHealthScore(compsWithCost, inv)
++    expect(score).toBeGreaterThanOrEqual(80)
++  })
++
++  it('returns 0 for empty components', () => {
++    const { score } = calculateHealthScore([], [])
++    expect(score).toBe(0)
++  })
++
++  it('penalises OOS product', () => {
++    const inv = [makeInv('p1', 0), makeInv('p2'), makeInv('p3')]
++    const { breakdown } = calculateHealthScore(components, inv)
++    expect(breakdown.availability).toBeLessThan(50)
++    expect(breakdown.factors.find(f => f.productId === 'p1')?.available).toBe(false)
++  })
++
++  it('penalises missing required role', () => {
++    const partial = [{ role: 'cleanse' as const, shopifyProductId: 'p1' }]
++    const inv = [makeInv('p1')]
++    const { breakdown } = calculateHealthScore(partial, inv)
++    expect(breakdown.completeness).toBeLessThan(20)
++  })
++
++  it('awards mid margin when no costs set', () => {
++    const inv = [makeInv('p1'), makeInv('p2'), makeInv('p3')]
++    const { breakdown } = calculateHealthScore(components, inv)
++    expect(breakdown.margin).toBe(15)
++  })
++})
+
+--- /dev/null
++++ b/app/server/src/services/scoring.ts
+
+diff --git a/app/server/src/services/scoring.ts b/app/server/src/services/scoring.ts
+new file mode 100644
+index 0000000..62e2a1f
+--- /dev/null
++++ b/app/server/src/services/scoring.ts
+@@ -0,0 +1,103 @@
++export interface ComponentInput {
++  role: 'cleanse' | 'treat' | 'seal' | 'scent'
++  shopifyProductId: string
++  shopifyVariantId?: string | null
++  unitCost?: number | null
++}
++
++export interface InventoryInfo {
++  productId: string
++  variantId?: string
++  available: number
++  status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED'
++  price: string
++}
++
++export interface ScoreBreakdown {
++  availability: number
++  availabilityMax: number
++  completeness: number
++  completenessMax: number
++  margin: number
++  marginMax: number
++  total: number
++  factors: Array<{ productId: string; available: boolean; reason: string }>
++}
++
++const REQUIRED_ROLES = ['cleanse', 'treat', 'seal'] as const
++
++export function calculateHealthScore(
++  components: ComponentInput[],
++  inventory: InventoryInfo[],
++): { score: number; breakdown: ScoreBreakdown } {
++  if (components.length === 0) {
++    return {
++      score: 0,
++      breakdown: {
++        availability: 0,
++        availabilityMax: 50,
++        completeness: 0,
++        completenessMax: 20,
++        margin: 0,
++        marginMax: 30,
++        total: 0,
++        factors: [],
++      },
++    }
++  }
++
++  const inventoryMap = new Map(inventory.map(i => [i.productId, i]))
++  const factors: ScoreBreakdown['factors'] = []
++
++  let availableCount = 0
++  components.forEach(c => {
++    const inv = inventoryMap.get(c.shopifyProductId)
++    const available = !!inv && inv.available > 0 && inv.status === 'ACTIVE'
++    availableCount += available ? 1 : 0
++    factors.push({
++      productId: c.shopifyProductId,
++      available,
++      reason: !inv
++        ? 'Product not found'
++        : inv.status !== 'ACTIVE'
++          ? `Product is ${inv.status}`
++          : inv.available === 0
++            ? 'Out of stock'
++            : 'In stock',
++    })
++  })
++  const availability = Math.round((availableCount / components.length) * 50)
++
++  const presentRoles = new Set(components.map(c => c.role))
++  const requiredPresent = REQUIRED_ROLES.filter(r => presentRoles.has(r)).length
++  const completeness = Math.round((requiredPresent / REQUIRED_ROLES.length) * 20)
++
++  const withCosts = components.filter(c => c.unitCost != null && c.unitCost > 0)
++  let margin = 15
++  if (withCosts.length > 0) {
++    const avgMargin =
++      withCosts.reduce((sum, c) => {
++        const inv = inventoryMap.get(c.shopifyProductId)
++        const price = inv ? parseFloat(inv.price) : 0
++        const cost = c.unitCost!
++        return sum + (price > 0 ? Math.max(0, Math.min(1, (price - cost) / price)) : 0)
++      }, 0) / withCosts.length
++    margin = Math.round(avgMargin * 30)
++  }
++
++  const total = availability + completeness + margin
++
++  return {
++    score: total,
++    breakdown: {
++      availability,
++      availabilityMax: 50,
++      completeness,
++      completenessMax: 20,
++      margin,
++      marginMax: 30,
++      total,
++      factors,
++    },
++  }
++}
+
+--- /dev/null
++++ b/app/server/src/shopify/graphql.ts
+
+diff --git a/app/server/src/shopify/graphql.ts b/app/server/src/shopify/graphql.ts
+new file mode 100644
+index 0000000..58dbf19
+--- /dev/null
++++ b/app/server/src/shopify/graphql.ts
+@@ -0,0 +1,96 @@
++import { eq } from 'drizzle-orm'
++import { db } from '../db/client'
++import { shops } from '../db/schema'
++import type { ShopContext } from './auth'
++import type { InventoryInfo } from '../services/scoring'
++
++const INVENTORY_QUERY = `
++  query FetchProductInventory($ids: [ID!]!) {
++    nodes(ids: $ids) {
++      ... on Product {
++        id
++        status
++        variants(first: 1) {
++          nodes {
++            id
++            price
++            inventoryQuantity
++          }
++        }
++      }
++    }
++  }
++`
++
++interface ProductNode {
++  id: string
++  status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED'
++  variants?: {
++    nodes: Array<{
++      id: string
++      price: string
++      inventoryQuantity: number
++    }>
++  }
++}
++
++interface GraphQLResponse {
++  data?: {
++    nodes: Array<ProductNode | null>
++  }
++  errors?: Array<{ message: string }>
++}
++
++export async function fetchInventory(shop: ShopContext, productIds: string[]): Promise<InventoryInfo[]> {
++  if (productIds.length === 0) {
++    return []
++  }
++
++  const [shopRow] = await db
++    .select({ accessToken: shops.accessToken })
++    .from(shops)
++    .where(eq(shops.id, shop.shopId))
++    .limit(1)
++
++  if (!shopRow) {
++    throw new Error(`Shop not found: ${shop.shopId}`)
++  }
++
++  const res = await fetch(`https://${shop.shopDomain}/admin/api/2025-01/graphql.json`, {
++    method: 'POST',
++    headers: {
++      'Content-Type': 'application/json',
++      'X-Shopify-Access-Token': shopRow.accessToken,
++    },
++    body: JSON.stringify({
++      query: INVENTORY_QUERY,
++      variables: { ids: productIds },
++    }),
++  })
++
++  if (!res.ok) {
++    throw new Error(`GraphQL request failed: ${res.status}`)
++  }
++
++  const body = (await res.json()) as GraphQLResponse
++  if (body.errors?.length) {
++    throw new Error(body.errors.map(e => e.message).join('; '))
++  }
++
++  const nodes = body.data?.nodes ?? []
++  const results: InventoryInfo[] = []
++
++  for (const node of nodes) {
++    if (!node?.id) continue
++    const variant = node.variants?.nodes?.[0]
++    results.push({
++      productId: node.id,
++      variantId: variant?.id,
++      available: variant?.inventoryQuantity ?? 0,
++      status: node.status,
++      price: variant?.price ?? '0',
++    })
++  }
++
++  return results
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Rituals/RitualForm/ComponentList.tsx
+
+diff --git a/app/web/src/pages/Rituals/RitualForm/ComponentList.tsx b/app/web/src/pages/Rituals/RitualForm/ComponentList.tsx
+new file mode 100644
+index 0000000..cbd4cd2
+--- /dev/null
++++ b/app/web/src/pages/Rituals/RitualForm/ComponentList.tsx
+@@ -0,0 +1,52 @@
++import { BlockStack, Button, Card, Text } from '@shopify/polaris'
++import { ComponentRow } from './ComponentRow'
++import type { Component } from '../../../types'
++
++interface ComponentListProps {
++  components: Component[]
++  onChange: (components: Component[]) => void
++}
++
++export function ComponentList({ components, onChange }: ComponentListProps) {
++  async function handleAddProducts() {
++    const selection = await shopify.resourcePicker({
++      type: 'product',
++      multiple: true,
++      action: 'add',
++    })
++    if (!selection) return
++
++    const newComponents: Component[] = selection.map((product, index) => ({
++      shopifyProductId: product.id,
++      shopifyVariantId: product.variants?.[0]?.id ?? null,
++      productTitleCache: product.title,
++      role: 'cleanse',
++      quantity: 1,
++      sortOrder: components.length + index,
++    }))
++    onChange([...components, ...newComponents])
++  }
++
++  return (
++    <Card>
++      <BlockStack gap="300">
++        <Text as="h2" variant="headingMd">Routine products</Text>
++        {components.map((component, index) => (
++          <ComponentRow
++            key={`${component.shopifyProductId}-${index}`}
++            component={component}
++            onChange={(updated) => {
++              const next = [...components]
++              next[index] = updated
++              onChange(next)
++            }}
++            onRemove={() =>
++              onChange(components.filter((_, componentIndex) => componentIndex !== index))
++            }
++          />
++        ))}
++        <Button onClick={() => void handleAddProducts()}>Add product</Button>
++      </BlockStack>
++    </Card>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Rituals/RitualForm/ComponentRow.tsx
+
+diff --git a/app/web/src/pages/Rituals/RitualForm/ComponentRow.tsx b/app/web/src/pages/Rituals/RitualForm/ComponentRow.tsx
+new file mode 100644
+index 0000000..9cd3f8c
+--- /dev/null
++++ b/app/web/src/pages/Rituals/RitualForm/ComponentRow.tsx
+@@ -0,0 +1,48 @@
++import { InlineStack, Select, TextField, Button, Text } from '@shopify/polaris'
++import type { Component } from '../../../types'
++
++const ROLE_OPTIONS = [
++  { label: 'Cleanse', value: 'cleanse' },
++  { label: 'Treat', value: 'treat' },
++  { label: 'Seal / Moisturize', value: 'seal' },
++  { label: 'Scent / Mist', value: 'scent' },
++]
++
++interface ComponentRowProps {
++  component: Component
++  onChange: (component: Component) => void
++  onRemove: () => void
++}
++
++export function ComponentRow({ component, onChange, onRemove }: ComponentRowProps) {
++  return (
++    <InlineStack gap="300" align="start" blockAlign="center" wrap>
++      <Text as="p" variant="bodyMd">
++        {component.productTitleCache ?? component.shopifyProductId}
++      </Text>
++      <Select
++        label="Role"
++        labelHidden
++        options={ROLE_OPTIONS}
++        value={component.role}
++        onChange={(role) =>
++          onChange({ ...component, role: role as Component['role'] })
++        }
++      />
++      <TextField
++        label="Quantity"
++        labelHidden
++        type="number"
++        value={String(component.quantity)}
++        min={1}
++        onChange={(value) =>
++          onChange({ ...component, quantity: Number(value) || 1 })
++        }
++        autoComplete="off"
++      />
++      <Button tone="critical" variant="plain" onClick={onRemove}>
++        Remove
++      </Button>
++    </InlineStack>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Rituals/RitualForm/__tests__/RitualForm.test.tsx
+
+diff --git a/app/web/src/pages/Rituals/RitualForm/__tests__/RitualForm.test.tsx b/app/web/src/pages/Rituals/RitualForm/__tests__/RitualForm.test.tsx
+new file mode 100644
+index 0000000..a32cfa6
+--- /dev/null
++++ b/app/web/src/pages/Rituals/RitualForm/__tests__/RitualForm.test.tsx
+@@ -0,0 +1,63 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest'
++import { render, screen } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
++import { MemoryRouter, Routes, Route } from 'react-router-dom'
++import { AppProvider } from '@shopify/polaris'
++import enTranslations from '@shopify/polaris/locales/en.json'
++import type { ReactNode } from 'react'
++
++vi.mock('../../../../services/api', () => ({
++  api: {
++    get: vi.fn(),
++    post: vi.fn(),
++    put: vi.fn(),
++  },
++}))
++
++vi.mock('@shopify/app-bridge-react', () => ({
++  TitleBar: () => null,
++}))
++
++import { RitualForm } from '../index'
++import { api } from '../../../../services/api'
++
++const mockPost = api.post as ReturnType<typeof vi.fn>
++const mockPut = api.put as ReturnType<typeof vi.fn>
++
++function Wrapper({ children }: { children: ReactNode }) {
++  return (
++    <MemoryRouter initialEntries={['/rituals/new']}>
++      <AppProvider i18n={enTranslations}>
++        <Routes>
++          <Route path="/rituals/new" element={children} />
++          <Route path="/rituals/:id/edit" element={children} />
++        </Routes>
++      </AppProvider>
++    </MemoryRouter>
++  )
++}
++
++describe('RitualForm', () => {
++  beforeEach(() => {
++    vi.clearAllMocks()
++    Object.defineProperty(globalThis, 'shopify', {
++      value: {
++        idToken: async () => 'test-token',
++        resourcePicker: async () => undefined,
++      },
++      configurable: true,
++    })
++  })
++
++  it('does not POST when submitting without components', async () => {
++    const user = userEvent.setup()
++    render(<RitualForm />, { wrapper: Wrapper })
++
++    await user.type(screen.getByLabelText('Routine title'), 'Morning kit')
++    await user.click(screen.getByRole('button', { name: 'Save' }))
++
++    expect(mockPost).not.toHaveBeenCalled()
++    expect(mockPut).not.toHaveBeenCalled()
++    expect(await screen.findByText(/add at least one product/i)).toBeTruthy()
++  })
++})
+
+--- /dev/null
++++ b/app/web/src/pages/Rituals/__tests__/Rituals.test.tsx
+
+diff --git a/app/web/src/pages/Rituals/__tests__/Rituals.test.tsx b/app/web/src/pages/Rituals/__tests__/Rituals.test.tsx
+new file mode 100644
+index 0000000..56d1a80
+--- /dev/null
++++ b/app/web/src/pages/Rituals/__tests__/Rituals.test.tsx
+@@ -0,0 +1,43 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest'
++import { render, screen } from '@testing-library/react'
++import { MemoryRouter } from 'react-router-dom'
++import { AppProvider } from '@shopify/polaris'
++import enTranslations from '@shopify/polaris/locales/en.json'
++import type { ReactNode } from 'react'
++
++vi.mock('../../../services/api', () => ({
++  api: {
++    get: vi.fn(),
++    post: vi.fn(),
++  },
++}))
++
++vi.mock('@shopify/app-bridge-react', () => ({
++  TitleBar: () => null,
++}))
++
++import { Rituals } from '../index'
++import { api } from '../../../services/api'
++
++const mockGet = api.get as ReturnType<typeof vi.fn>
++
++function Wrapper({ children }: { children: ReactNode }) {
++  return (
++    <MemoryRouter>
++      <AppProvider i18n={enTranslations}>{children}</AppProvider>
++    </MemoryRouter>
++  )
++}
++
++describe('Rituals', () => {
++  beforeEach(() => {
++    vi.clearAllMocks()
++  })
++
++  it('shows empty state heading when api.get returns []', async () => {
++    mockGet.mockResolvedValueOnce([])
++    render(<Rituals />, { wrapper: Wrapper })
++    const heading = await screen.findByText('No routines yet')
++    expect(heading).toBeTruthy()
++  })
++})

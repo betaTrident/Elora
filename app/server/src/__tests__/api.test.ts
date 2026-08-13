@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import type { Express } from 'express'
 import * as ritualsService from '../services/rituals'
+import * as activityService from '../services/activity'
 
 const TEST_API_KEY = 'test-api-key'
 const TEST_SECRET = 'test-secret'
@@ -128,19 +129,44 @@ describe('POST /api/rituals', () => {
     expect(res.body.issues).toBeDefined()
   })
 
+  it('returns 400 for empty components array', async () => {
+    const res = await authRequest('post', '/api/rituals').send({ title: 'X', components: [] })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('Validation failed')
+    expect(res.body.issues).toBeDefined()
+  })
+
   it('returns 201 for valid body', async () => {
+    vi.spyOn(ritualsService, 'createRitual').mockResolvedValueOnce({
+      id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      score: 65,
+      breakdown: {
+        availability: 50,
+        availabilityMax: 50,
+        completeness: 7,
+        completenessMax: 20,
+        margin: 15,
+        marginMax: 30,
+        total: 65,
+        factors: [],
+      },
+      threshold: 70,
+    })
     const res = await authRequest('post', '/api/rituals').send(validRitualBody)
     expect(res.status).toBe(201)
     expect(res.body).toMatchObject({
-      id: 'mock-ritual-id',
-      score: 80,
+      score: 65,
       threshold: 70,
     })
+    expect(res.body.id).toMatch(/^[0-9a-f-]{36}$/i)
   })
 })
 
 describe('GET /api/rituals/:id', () => {
   it('returns 404 when id is missing', async () => {
+    vi.spyOn(ritualsService, 'getRitual').mockRejectedValueOnce(
+      Object.assign(new Error('Not found'), { status: 404 }),
+    )
     const res = await authRequest('get', '/api/rituals/missing')
     expect(res.status).toBe(404)
     expect(res.body).toEqual({ error: 'Not found' })
@@ -149,6 +175,9 @@ describe('GET /api/rituals/:id', () => {
 
 describe('PUT /api/rituals/:id', () => {
   it('returns 404 when id is missing', async () => {
+    vi.spyOn(ritualsService, 'updateRitual').mockRejectedValueOnce(
+      Object.assign(new Error('Not found'), { status: 404 }),
+    )
     const res = await authRequest('put', '/api/rituals/missing').send(validRitualBody)
     expect(res.status).toBe(404)
     expect(res.body).toEqual({ error: 'Not found' })
@@ -190,6 +219,28 @@ describe('POST /webhooks/app/uninstalled', () => {
       .send(body)
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ ok: true })
+  })
+})
+
+describe('GET /api/activity', () => {
+  it('returns 200 array with token', async () => {
+    const rows = [
+      {
+        id: 'a1',
+        summary: 'Created routine "Morning Glow"',
+        action: 'ritual.created',
+        entityType: 'ritual',
+        actorType: 'merchant',
+        createdAt: '2026-08-13T00:00:00.000Z',
+      },
+    ]
+    vi.spyOn(activityService, 'listActivity').mockResolvedValueOnce(rows as never)
+
+    const res = await authRequest('get', '/api/activity')
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual(rows)
+    expect(activityService.listActivity).toHaveBeenCalledWith('shop-id-1', expect.any(Object))
   })
 })
 

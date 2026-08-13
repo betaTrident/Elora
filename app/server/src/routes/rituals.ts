@@ -6,7 +6,8 @@ const router = Router()
 
 const componentSchema = z.object({
   shopifyProductId: z.string().min(1),
-  shopifyVariantId: z.string().optional(),
+  shopifyVariantId: z.string().nullable().optional(),
+  productTitleCache: z.string().max(255).optional(),
   role: z.enum(['cleanse', 'treat', 'seal', 'scent']),
   quantity: z.number().int().min(1).default(1),
   unitCost: z.number().nonnegative().optional(),

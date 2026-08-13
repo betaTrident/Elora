@@ -1,10 +1,20 @@
 import { Router } from 'express'
+import * as activityService from '../services/activity'
 
 const router = Router()
 
-router.get('/', async (_req, res, next) => {
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+router.get('/', async (req, res, next) => {
   try {
-    res.json([])
+    const logs = await activityService.listActivity(req.shop.shopId, {
+      action: optionalString(req.query.action),
+      entityType: optionalString(req.query.entityType),
+      actorType: optionalString(req.query.actorType),
+    })
+    res.json(logs)
   } catch (e) {
     next(e)
   }

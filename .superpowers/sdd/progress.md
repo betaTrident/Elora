@@ -43,3 +43,17 @@
   - Backend: Drizzle `getDashboardData`; 31/31 server tests
   - Frontend: KPI cards, IndexTable, activity, skeleton/empty/error; 7/7 web tests
   - Minor (deferred): KPI grid 1-up on xs; Create routine on Page not TitleBar; aria-live not on empty/error; formatRelativeTime untested
+
+## Phase 7 — Ritual CRUD
+
+- Task 7: complete (no commits; review approved after Important fixes)
+  - Drizzle CRUD, score-on-save, GraphQL inventory, Resource Picker form
+  - Server 43/43 tests; web 9/9; tsc pass
+  - Minor (deferred): GraphQL inside DB transaction; archive error UX; activity log copy uses “ritual”
+
+## Phase 8 — Activity Log
+
+- Task 8: complete (no commits; review approved after empty-state filter fix)
+  - listActivity cap 100 + filters; recalculate logs; Activity page IndexTable expand
+  - Server 50/50 tests; web 13/13; tsc pass
+  - Minor (deferred): filter SQL assertions; blank expand on archive rows; full-page skeleton on filter refetch

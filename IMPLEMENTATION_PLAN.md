@@ -55,8 +55,8 @@ Repo folder: `elora/`. Theme shop name in `settings_schema.json` / locales: Elor
 | 4 — Backend API Core | **DONE** |
 | 5 — Frontend Shell (Vite + Polaris) | **DONE** |
 | 6 — Dashboard Page & KPIs | **DONE** |
-| 7 — Ritual CRUD | NOT STARTED |
-| 8 — Activity Log | NOT STARTED |
+| 7 — Ritual CRUD | **DONE** |
+| 8 — Activity Log | **DONE** |
 | 9 — Health Score Engine + Alerts | NOT STARTED |
 | 10 — Settings Page | NOT STARTED |
 | 11 — Shopify Theme (Elora) | NOT STARTED |
@@ -1279,7 +1279,7 @@ function KpiCard({ label, value, tone }: { label: string; value: number; tone?: 
 
 ## Phase 7 — Ritual CRUD (Create / Update / Archive)
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Goal
 Merchant can create, edit, archive a ritual with components via Resource Picker; score triggers on save.
@@ -1443,13 +1443,13 @@ export async function createRitual(shop: ShopContext, input: CreateRitualInput) 
 
 ---
 
-**End of Phase 7 — NOT STARTED**
+**End of Phase 7 — DONE**
 
 ---
 
 ## Phase 8 — Activity Log
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Goal
 Every mutation is logged; Activity page shows filterable history.
@@ -1543,7 +1543,7 @@ export default function ActivityPage() {
 
 ---
 
-**End of Phase 8 — NOT STARTED**
+**End of Phase 8 — DONE**
 
 ---
 
@@ -2581,5 +2581,5 @@ Use this before submission.
 
 ---
 
-> **Next step:** Phase 0–6 are **DONE**. Continue at **Phase 7 — Ritual CRUD (Create / Update / Archive)**.
+> **Next step:** Phase 0–8 are **DONE**. Continue at **Phase 9 — Health Score Engine + Alerts**.
 > Update the Phase progress table and each phase **Status** / **End of Phase** line as work completes.
