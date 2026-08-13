@@ -1,0 +1,237 @@
+﻿# Review package — Task 12B (uncommitted)
+
+BASE: 4b9dc8b (p11 shopify elora theme implemented.) plus 12A working-tree files (not in this package)
+HEAD: working tree (no commit; user forbade commits)
+Scope: 12B files only (layout script + ritual-builder.js)
+
+## Commit list
+(none — uncommitted working tree)
+
+## Stat
+ theme/layout/theme.liquid | 1 +
+ 1 file changed, 1 insertion(+)
+ theme/assets/ritual-builder.js (untracked, new file)
+
+## Diff
+
+diff --git a/theme/layout/theme.liquid b/theme/layout/theme.liquid
+index 78419ab..d038113 100644
+--- a/theme/layout/theme.liquid
++++ b/theme/layout/theme.liquid
+@@ -12,12 +12,13 @@
+     {{ 'base.css' | asset_url | stylesheet_tag }}
+   </head>
+   <body>
+     <a class="skip-link" href="#MainContent">{{ 'accessibility.skip_to_content' | t }}</a>
+     {% sections 'header-group' %}
+     <main id="MainContent" role="main" tabindex="-1">
+       {{ content_for_layout }}
+     </main>
+     {% sections 'footer-group' %}
+     <script src="{{ 'theme.js' | asset_url }}" defer></script>
++    <script src="{{ 'ritual-builder.js' | asset_url }}" defer></script>
+   </body>
+ </html>
+diff --git a/theme/assets/ritual-builder.js b/theme/assets/ritual-builder.js
+new file mode 100644
+index 0000000..abd27c1
+--- /dev/null
++++ b/theme/assets/ritual-builder.js
+@@ -0,0 +1,197 @@
++(function () {
++  var sections = document.querySelectorAll('[data-ritual-builder]');
++  if (!sections.length) return;
++
++  sections.forEach(function (section) {
++    initRitualBuilder(section);
++  });
++
++  function initRitualBuilder(section) {
++    var productsData = [];
++    var jsonEl = section.querySelector('[data-builder-products]');
++
++    if (jsonEl) {
++      try {
++        var parsed = JSON.parse(jsonEl.textContent);
++        productsData = Array.isArray(parsed) ? parsed : [];
++      } catch (err) {
++        productsData = [];
++      }
++    }
++
++    var selectedFilters = [];
++    var currentStep = 1;
++    var matchedProducts = [];
++    var addBtn = section.querySelector('[data-add-ritual]');
++    var addBtnDefaultText = addBtn ? addBtn.textContent : '';
++
++    section.addEventListener('click', function (event) {
++      var choice = event.target.closest('[data-filter]');
++      var addButton = event.target.closest('[data-add-ritual]');
++      var restart = event.target.closest('[data-restart]');
++
++      if (choice && choice.closest('[data-ritual-builder]') === section) {
++        selectedFilters.push(choice.dataset.filter);
++        choice.classList.add('is-selected');
++        nextStep();
++      }
++
++      if (addButton && addButton.closest('[data-ritual-builder]') === section) {
++        addRitualToCart();
++      }
++
++      if (restart && restart.closest('[data-ritual-builder]') === section) {
++        resetBuilder();
++      }
++    });
++
++    function nextStep() {
++      currentStep += 1;
++      var steps = section.querySelectorAll('[data-step]');
++
++      steps.forEach(function (stepEl) {
++        stepEl.hidden = parseInt(stepEl.dataset.step, 10) !== currentStep;
++      });
++
++      if (currentStep > steps.length) {
++        showResult();
++      }
++    }
++
++    function filterProducts() {
++      return productsData
++        .filter(function (product) {
++          var tags = product.tags || [];
++          return selectedFilters.every(function (filter) {
++            return tags.indexOf(filter) !== -1;
++          });
++        })
++        .slice(0, 3);
++    }
++
++    function clearResultProducts(productsEl) {
++      while (productsEl.firstChild) {
++        productsEl.removeChild(productsEl.firstChild);
++      }
++    }
++
++    function createProductCard(product) {
++      var card = document.createElement('div');
++      card.className = 'ritual-builder__product-card';
++
++      if (product.image) {
++        var img = document.createElement('img');
++        img.src = product.image;
++        img.alt = product.title || '';
++        img.loading = 'lazy';
++        card.appendChild(img);
++      }
++
++      var title = document.createElement('p');
++      title.textContent = product.title || '';
++      card.appendChild(title);
++
++      var price = document.createElement('small');
++      price.textContent = product.price || '';
++      card.appendChild(price);
++
++      return card;
++    }
++
++    function showResult() {
++      matchedProducts = filterProducts();
++
++      if (matchedProducts.length === 0) {
++        matchedProducts = productsData.slice(0, 3);
++      }
++
++      var resultEl = section.querySelector('[data-result]');
++      var productsEl = section.querySelector('[data-result-products]');
++
++      clearResultProducts(productsEl);
++
++      matchedProducts.forEach(function (product) {
++        productsEl.appendChild(createProductCard(product));
++      });
++
++      section.querySelectorAll('[data-step]').forEach(function (stepEl) {
++        stepEl.hidden = true;
++      });
++
++      resultEl.hidden = false;
++    }
++
++    function addRitualToCart() {
++      if (!addBtn) return;
++
++      var ritualName = selectedFilters
++        .map(function (filter) {
++          return filter.split(':')[1];
++        })
++        .join(' ┬╖ ');
++
++      var items = matchedProducts
++        .filter(function (product) {
++          return product.variantId != null && product.variantId !== '';
++        })
++        .map(function (product) {
++          return {
++            id: product.variantId,
++            quantity: 1,
++            properties: { 'Elora Ritual': ritualName },
++          };
++        });
++
++      if (items.length === 0) {
++        addBtn.textContent = 'Error ΓÇö try again';
++        addBtn.disabled = false;
++        return;
++      }
++
++      addBtn.disabled = true;
++      addBtn.textContent = 'Adding...';
++
++      fetch('/cart/add.js', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ items: items }),
++      })
++        .then(function (response) {
++          if (!response.ok) throw new Error('Cart add failed');
++          addBtn.textContent = 'Added!';
++          setTimeout(function () {
++            window.location.href = '/cart';
++          }, 800);
++        })
++        .catch(function () {
++          addBtn.textContent = 'Error ΓÇö try again';
++          addBtn.disabled = false;
++        });
++    }
++
++    function resetBuilder() {
++      selectedFilters = [];
++      currentStep = 1;
++      matchedProducts = [];
++
++      section.querySelectorAll('[data-step]').forEach(function (stepEl) {
++        stepEl.hidden = parseInt(stepEl.dataset.step, 10) !== 1;
++      });
++
++      var resultEl = section.querySelector('[data-result]');
++      if (resultEl) resultEl.hidden = true;
++
++      section.querySelectorAll('.is-selected').forEach(function (el) {
++        el.classList.remove('is-selected');
++      });
++
++      if (addBtn) {
++        addBtn.disabled = false;
++        addBtn.textContent = addBtnDefaultText;
++      }
++
++      var productsEl = section.querySelector('[data-result-products]');
++      if (productsEl) clearResultProducts(productsEl);
++    }
++  }
++})();

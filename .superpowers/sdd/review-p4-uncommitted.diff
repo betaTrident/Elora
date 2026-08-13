@@ -1,0 +1,689 @@
+﻿# Review package: af1ca7b..WORKING_TREE (Phase 4 uncommitted)
+
+## Commits
+(none — implementer did not commit, per instructions)
+
+## Files changed
+
+ app/server/src/index.ts | 28 +++++++++++++++++++++++-----
+ 1 file changed, 23 insertions(+), 5 deletions(-)
+ M app/server/src/index.ts
+?? app/server/src/__tests__/api.test.ts
+?? app/server/src/middleware/errorHandler.ts
+?? app/server/src/routes/
+?? app/server/src/services/
+
+## Diff
+
+diff --git a/app/server/src/index.ts b/app/server/src/index.ts
+index bc42e9b..dc2793e 100644
+--- a/app/server/src/index.ts
++++ b/app/server/src/index.ts
+@@ -1,28 +1,46 @@
+ import express from 'express'
+-import { config } from 'dotenv'
+-import { requireAuth } from './middleware/requireAuth'
++import cors from 'cors'
+ import { config as appConfig } from './config'
+-
+-config()
++import { requireAuth } from './middleware/requireAuth'
++import { errorHandler } from './middleware/errorHandler'
++import dashboardRouter from './routes/dashboard'
++import ritualsRouter from './routes/rituals'
++import scoresRouter from './routes/scores'
++import alertsRouter from './routes/alerts'
++import activityRouter from './routes/activity'
++import settingsRouter from './routes/settings'
++import webhooksRouter from './routes/webhooks'
+ 
+ export const app = express()
+-app.use(express.json())
++app.use(cors())
+ 
+ app.use((_req, res, next) => {
+   res.setHeader(
+     'Content-Security-Policy',
+     'frame-ancestors https://admin.shopify.com https://*.myshopify.com;',
+   )
+   next()
+ })
+ 
++app.use('/webhooks', express.raw({ type: '*/*' }), webhooksRouter)
++app.use(express.json())
++
+ app.get('/health', (_req, res) => res.json({ ok: true }))
+ 
+ app.use('/api', requireAuth)
+ app.get('/api/ping', (req, res) => res.json({ shop: req.shop.shopDomain }))
+ 
++app.use('/api/dashboard', dashboardRouter)
++app.use('/api/rituals', ritualsRouter)
++app.use('/api/scores', scoresRouter)
++app.use('/api/alerts', alertsRouter)
++app.use('/api/activity', activityRouter)
++app.use('/api/settings', settingsRouter)
++
++app.use(errorHandler)
++
+ if (process.env.VITEST !== 'true' && process.env.NODE_ENV !== 'test') {
+   app.listen(appConfig.port, () => {
+     console.log('Server ready')
+   })
+ }
+
+--- /dev/null
++++ b/app/server/src/__tests__/api.test.ts
+
+diff --git a/app/server/src/__tests__/api.test.ts b/app/server/src/__tests__/api.test.ts
+new file mode 100644
+index 0000000..d562062
+--- /dev/null
++++ b/app/server/src/__tests__/api.test.ts
+@@ -0,0 +1,187 @@
++import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
++import request from 'supertest'
++import jwt from 'jsonwebtoken'
++import crypto from 'crypto'
++import type { Express } from 'express'
++import * as ritualsService from '../services/rituals'
++
++const TEST_API_KEY = 'test-api-key'
++const TEST_SECRET = 'test-secret'
++
++const mockLimit = vi.fn()
++const mockWhere = vi.fn(() => ({ limit: mockLimit }))
++const mockFrom = vi.fn(() => ({ where: mockWhere }))
++const mockSelect = vi.fn(() => ({ from: mockFrom }))
++
++vi.mock('../db/client', () => ({
++  db: {
++    select: (...args: unknown[]) => mockSelect(...args),
++    insert: vi.fn(() => ({
++      values: vi.fn(() => ({
++        onDuplicateKeyUpdate: vi.fn().mockResolvedValue(undefined),
++      })),
++    })),
++  },
++}))
++
++beforeAll(() => {
++  process.env.VITEST = 'true'
++  process.env.SHOPIFY_API_KEY = TEST_API_KEY
++  process.env.SHOPIFY_API_SECRET = TEST_SECRET
++  process.env.DATABASE_URL = 'mysql://test:test@localhost:3306/test'
++  process.env.SHOPIFY_APP_URL = 'https://test.example.com'
++  process.env.PORT = '3000'
++})
++
++let app: Express
++
++function signToken(): string {
++  return jwt.sign(
++    {
++      aud: TEST_API_KEY,
++      dest: 'https://test-shop.myshopify.com',
++      sub: 'user-123',
++    },
++    TEST_SECRET,
++    { algorithm: 'HS256' },
++  )
++}
++
++function authRequest(method: 'get' | 'post' | 'put', path: string) {
++  mockLimit.mockResolvedValueOnce([{ id: 'shop-id-1' }])
++  const token = signToken()
++  return request(app)[method](path).set('Authorization', `Bearer ${token}`)
++}
++
++const validRitualBody = {
++  title: 'Morning Ritual',
++  components: [
++    {
++      shopifyProductId: 'gid://shopify/Product/123',
++      role: 'cleanse' as const,
++      quantity: 1,
++    },
++  ],
++}
++
++beforeAll(async () => {
++  const mod = await import('../index')
++  app = mod.app
++})
++
++beforeEach(() => {
++  vi.clearAllMocks()
++  mockSelect.mockReturnValue({ from: mockFrom })
++  mockFrom.mockReturnValue({ where: mockWhere })
++  mockWhere.mockReturnValue({ limit: mockLimit })
++})
++
++describe('requireAuth on API routes', () => {
++  const protectedRoutes: Array<{ method: 'get' | 'post' | 'put'; path: string }> = [
++    { method: 'get', path: '/api/dashboard' },
++    { method: 'get', path: '/api/rituals' },
++    { method: 'post', path: '/api/rituals' },
++    { method: 'get', path: '/api/rituals/mock-id' },
++    { method: 'put', path: '/api/rituals/mock-id' },
++    { method: 'post', path: '/api/rituals/mock-id/archive' },
++    { method: 'post', path: '/api/rituals/mock-id/recalculate' },
++    { method: 'get', path: '/api/scores/mock-id' },
++    { method: 'get', path: '/api/alerts' },
++    { method: 'post', path: '/api/alerts/mock-id/resolve' },
++    { method: 'get', path: '/api/activity' },
++    { method: 'get', path: '/api/settings' },
++    { method: 'put', path: '/api/settings' },
++  ]
++
++  it.each(protectedRoutes)('$method $path returns 401 without token', async ({ method, path }) => {
++    const res = await request(app)[method](path)
++    expect(res.status).toBe(401)
++    expect(res.body).toEqual({ error: 'Missing token' })
++  })
++})
++
++describe('GET /api/dashboard', () => {
++  it('returns 200 with mock dashboard data', async () => {
++    const res = await authRequest('get', '/api/dashboard')
++    expect(res.status).toBe(200)
++    expect(res.body).toEqual({
++      counts: { total: 0, healthy: 0, broken: 0, unscored: 0, openAlerts: 0 },
++      worst5: [],
++      recentActivity: [],
++    })
++  })
++})
++
++describe('POST /api/rituals', () => {
++  it('returns 400 for empty body', async () => {
++    const res = await authRequest('post', '/api/rituals').send({})
++    expect(res.status).toBe(400)
++    expect(res.body.error).toBe('Validation failed')
++    expect(res.body.issues).toBeDefined()
++  })
++
++  it('returns 201 for valid body', async () => {
++    const res = await authRequest('post', '/api/rituals').send(validRitualBody)
++    expect(res.status).toBe(201)
++    expect(res.body).toMatchObject({
++      id: 'mock-ritual-id',
++      score: 80,
++      threshold: 70,
++    })
++  })
++})
++
++describe('GET /api/rituals/:id', () => {
++  it('returns 404 when id is missing', async () => {
++    const res = await authRequest('get', '/api/rituals/missing')
++    expect(res.status).toBe(404)
++    expect(res.body).toEqual({ error: 'Not found' })
++  })
++})
++
++describe('PUT /api/settings', () => {
++  it('returns 400 when defaultThreshold is out of range', async () => {
++    const res = await authRequest('put', '/api/settings').send({ defaultThreshold: 200 })
++    expect(res.status).toBe(400)
++    expect(res.body.error).toBe('Validation failed')
++  })
++
++  it('returns 200 for valid defaultThreshold', async () => {
++    const res = await authRequest('put', '/api/settings').send({ defaultThreshold: 75 })
++    expect(res.status).toBe(200)
++    expect(res.body).toEqual({ defaultThreshold: 75 })
++  })
++})
++
++describe('POST /webhooks/app/uninstalled', () => {
++  it('returns 401 for invalid HMAC', async () => {
++    const body = JSON.stringify({ shop_domain: 'test.myshopify.com' })
++    const res = await request(app)
++      .post('/webhooks/app/uninstalled')
++      .set('Content-Type', 'application/json')
++      .set('X-Shopify-Hmac-Sha256', 'invalid-hmac')
++      .send(body)
++    expect(res.status).toBe(401)
++  })
++
++  it('returns 200 for valid HMAC', async () => {
++    const body = JSON.stringify({ shop_domain: 'test.myshopify.com' })
++    const hmac = crypto.createHmac('sha256', TEST_SECRET).update(body).digest('base64')
++    const res = await request(app)
++      .post('/webhooks/app/uninstalled')
++      .set('Content-Type', 'application/json')
++      .set('X-Shopify-Hmac-Sha256', hmac)
++      .send(body)
++    expect(res.status).toBe(200)
++    expect(res.body).toEqual({ ok: true })
++  })
++})
++
++describe('errorHandler', () => {
++  it('returns 500 for unhandled errors', async () => {
++    vi.spyOn(ritualsService, 'listRituals').mockRejectedValueOnce(new Error('Unexpected failure'))
++    const res = await authRequest('get', '/api/rituals')
++    expect(res.status).toBe(500)
++    expect(res.body).toEqual({ error: 'Internal server error' })
++  })
++})
+
+--- /dev/null
++++ b/app/server/src/middleware/errorHandler.ts
+
+diff --git a/app/server/src/middleware/errorHandler.ts b/app/server/src/middleware/errorHandler.ts
+new file mode 100644
+index 0000000..e9f0c30
+--- /dev/null
++++ b/app/server/src/middleware/errorHandler.ts
+@@ -0,0 +1,14 @@
++import { Request, Response, NextFunction } from 'express'
++import { ZodError } from 'zod'
++
++export function errorHandler(err: unknown, _req: Request, res: Response, next: NextFunction) {
++  void next
++  if (err instanceof ZodError) {
++    return res.status(400).json({ error: 'Validation failed', issues: err.flatten() })
++  }
++  if (err instanceof Error && 'status' in err) {
++    return res.status((err as { status: number }).status).json({ error: err.message })
++  }
++  console.error(err)
++  res.status(500).json({ error: 'Internal server error' })
++}
+
+--- /dev/null
++++ b/app/server/src/routes/dashboard.ts
+
+diff --git a/app/server/src/routes/dashboard.ts b/app/server/src/routes/dashboard.ts
+new file mode 100644
+index 0000000..e335abd
+--- /dev/null
++++ b/app/server/src/routes/dashboard.ts
+@@ -0,0 +1,17 @@
++import { Router } from 'express'
++
++const router = Router()
++
++router.get('/', async (_req, res, next) => {
++  try {
++    res.json({
++      counts: { total: 0, healthy: 0, broken: 0, unscored: 0, openAlerts: 0 },
++      worst5: [],
++      recentActivity: [],
++    })
++  } catch (e) {
++    next(e)
++  }
++})
++
++export default router
+
+--- /dev/null
++++ b/app/server/src/routes/rituals.ts
+
+diff --git a/app/server/src/routes/rituals.ts b/app/server/src/routes/rituals.ts
+new file mode 100644
+index 0000000..ef5f908
+--- /dev/null
++++ b/app/server/src/routes/rituals.ts
+@@ -0,0 +1,79 @@
++import { Router } from 'express'
++import { z } from 'zod'
++import * as ritualsService from '../services/rituals'
++
++const router = Router()
++
++const componentSchema = z.object({
++  shopifyProductId: z.string().min(1),
++  shopifyVariantId: z.string().optional(),
++  role: z.enum(['cleanse', 'treat', 'seal', 'scent']),
++  quantity: z.number().int().min(1).default(1),
++  unitCost: z.number().nonnegative().optional(),
++  sortOrder: z.number().int().default(0),
++})
++
++const createSchema = z.object({
++  title: z.string().min(1).max(120),
++  description: z.string().max(500).optional(),
++  scoreThreshold: z.number().int().min(0).max(100).optional(),
++  components: z.array(componentSchema).min(1),
++})
++
++router.get('/', async (req, res, next) => {
++  try {
++    const rituals = await ritualsService.listRituals(req.shop.shopId, req.query.status as string)
++    res.json(rituals)
++  } catch (e) {
++    next(e)
++  }
++})
++
++router.post('/', async (req, res, next) => {
++  try {
++    const body = createSchema.parse(req.body)
++    const result = await ritualsService.createRitual(req.shop, body)
++    res.status(201).json(result)
++  } catch (e) {
++    next(e)
++  }
++})
++
++router.get('/:id', async (req, res, next) => {
++  try {
++    const ritual = await ritualsService.getRitual(req.shop.shopId, req.params.id)
++    res.json(ritual)
++  } catch (e) {
++    next(e)
++  }
++})
++
++router.put('/:id', async (req, res, next) => {
++  try {
++    const body = createSchema.parse(req.body)
++    const result = await ritualsService.updateRitual(req.shop, req.params.id, body)
++    res.json(result)
++  } catch (e) {
++    next(e)
++  }
++})
++
++router.post('/:id/archive', async (req, res, next) => {
++  try {
++    await ritualsService.archiveRitual(req.shop, req.params.id)
++    res.json({ ok: true })
++  } catch (e) {
++    next(e)
++  }
++})
++
++router.post('/:id/recalculate', async (req, res, next) => {
++  try {
++    const result = await ritualsService.recalculateRitual(req.shop, req.params.id)
++    res.json(result)
++  } catch (e) {
++    next(e)
++  }
++})
++
++export default router
+
+--- /dev/null
++++ b/app/server/src/routes/scores.ts
+
+diff --git a/app/server/src/routes/scores.ts b/app/server/src/routes/scores.ts
+new file mode 100644
+index 0000000..e9616da
+--- /dev/null
++++ b/app/server/src/routes/scores.ts
+@@ -0,0 +1,18 @@
++import { Router } from 'express'
++
++const router = Router()
++
++router.get('/:id', async (req, res, next) => {
++  try {
++    res.json({
++      id: req.params.id,
++      score: 80,
++      breakdown: { availability: 40, completeness: 20, margin: 15 },
++      calculatedAt: new Date().toISOString(),
++    })
++  } catch (e) {
++    next(e)
++  }
++})
++
++export default router
+
+--- /dev/null
++++ b/app/server/src/routes/alerts.ts
+
+diff --git a/app/server/src/routes/alerts.ts b/app/server/src/routes/alerts.ts
+new file mode 100644
+index 0000000..84545e3
+--- /dev/null
++++ b/app/server/src/routes/alerts.ts
+@@ -0,0 +1,21 @@
++import { Router } from 'express'
++
++const router = Router()
++
++router.get('/', async (_req, res, next) => {
++  try {
++    res.json([])
++  } catch (e) {
++    next(e)
++  }
++})
++
++router.post('/:id/resolve', async (_req, res, next) => {
++  try {
++    res.json({ ok: true })
++  } catch (e) {
++    next(e)
++  }
++})
++
++export default router
+
+--- /dev/null
++++ b/app/server/src/routes/activity.ts
+
+diff --git a/app/server/src/routes/activity.ts b/app/server/src/routes/activity.ts
+new file mode 100644
+index 0000000..febb4cf
+--- /dev/null
++++ b/app/server/src/routes/activity.ts
+@@ -0,0 +1,13 @@
++import { Router } from 'express'
++
++const router = Router()
++
++router.get('/', async (_req, res, next) => {
++  try {
++    res.json([])
++  } catch (e) {
++    next(e)
++  }
++})
++
++export default router
+
+--- /dev/null
++++ b/app/server/src/routes/settings.ts
+
+diff --git a/app/server/src/routes/settings.ts b/app/server/src/routes/settings.ts
+new file mode 100644
+index 0000000..952e7da
+--- /dev/null
++++ b/app/server/src/routes/settings.ts
+@@ -0,0 +1,25 @@
++import { Router } from 'express'
++import { z } from 'zod'
++import * as settingsService from '../services/settings'
++
++const router = Router()
++const schema = z.object({ defaultThreshold: z.number().int().min(0).max(100) })
++
++router.get('/', async (req, res, next) => {
++  try {
++    res.json(settingsService.getSettings(req.shop.shopId))
++  } catch (e) {
++    next(e)
++  }
++})
++
++router.put('/', async (req, res, next) => {
++  try {
++    const body = schema.parse(req.body)
++    res.json(settingsService.updateSettings(req.shop.shopId, body.defaultThreshold))
++  } catch (e) {
++    next(e)
++  }
++})
++
++export default router
+
+--- /dev/null
++++ b/app/server/src/routes/webhooks.ts
+
+diff --git a/app/server/src/routes/webhooks.ts b/app/server/src/routes/webhooks.ts
+new file mode 100644
+index 0000000..7c9ddf4
+--- /dev/null
++++ b/app/server/src/routes/webhooks.ts
+@@ -0,0 +1,41 @@
++import { Router, Request, Response, NextFunction } from 'express'
++import crypto from 'crypto'
++import { config } from '../config'
++
++const router = Router()
++
++function verifyHmac(rawBody: Buffer, hmacHeader: string | undefined): boolean {
++  if (!hmacHeader) return false
++
++  const computed = crypto
++    .createHmac('sha256', config.shopifyApiSecret)
++    .update(rawBody)
++    .digest('base64')
++
++  try {
++    const expected = Buffer.from(hmacHeader, 'base64')
++    const actual = Buffer.from(computed, 'base64')
++    if (expected.length !== actual.length) return false
++    return crypto.timingSafeEqual(expected, actual)
++  } catch {
++    return false
++  }
++}
++
++router.post('/app/uninstalled', (req: Request, res: Response, next: NextFunction) => {
++  try {
++    const rawBody = req.body as Buffer
++    const hmacHeader = req.headers['x-shopify-hmac-sha256'] as string | undefined
++
++    if (!verifyHmac(rawBody, hmacHeader)) {
++      return res.status(401).json({ error: 'Invalid HMAC' })
++    }
++
++    // Stub: full shop soft-delete deferred to a later phase
++    res.json({ ok: true })
++  } catch (e) {
++    next(e)
++  }
++})
++
++export default router
+
+--- /dev/null
++++ b/app/server/src/services/rituals.ts
+
+diff --git a/app/server/src/services/rituals.ts b/app/server/src/services/rituals.ts
+new file mode 100644
+index 0000000..bb96a17
+--- /dev/null
++++ b/app/server/src/services/rituals.ts
+@@ -0,0 +1,80 @@
++import { ShopContext } from '../shopify/auth'
++
++export interface RitualComponent {
++  shopifyProductId: string
++  shopifyVariantId?: string
++  role: 'cleanse' | 'treat' | 'seal' | 'scent'
++  quantity: number
++  unitCost?: number
++  sortOrder: number
++}
++
++export interface CreateRitualBody {
++  title: string
++  description?: string
++  scoreThreshold?: number
++  components: RitualComponent[]
++}
++
++function notFound(id: string): void {
++  if (id === 'missing') {
++    throw Object.assign(new Error('Not found'), { status: 404 })
++  }
++}
++
++function mockRitual(shopId: string, id: string, body?: Partial<CreateRitualBody>) {
++  return {
++    id,
++    shopId,
++    title: body?.title ?? 'Mock Ritual',
++    description: body?.description ?? null,
++    score: 80,
++    breakdown: {},
++    threshold: body?.scoreThreshold ?? 70,
++    status: 'active' as const,
++    components: body?.components ?? [
++      {
++        shopifyProductId: 'gid://shopify/Product/456',
++        role: 'cleanse' as const,
++        quantity: 1,
++        sortOrder: 0,
++      },
++    ],
++  }
++}
++
++export async function listRituals(_shopId: string, status?: string) {
++  void status
++  return [mockRitual(_shopId, 'mock-ritual-id')]
++}
++
++export async function createRitual(_shop: ShopContext, body: CreateRitualBody) {
++  return {
++    id: 'mock-ritual-id',
++    score: 80,
++    breakdown: {},
++    threshold: body.scoreThreshold ?? 70,
++  }
++}
++
++export async function getRitual(shopId: string, id: string) {
++  notFound(id)
++  return mockRitual(shopId, id)
++}
++
++export async function updateRitual(shop: ShopContext, id: string, body: CreateRitualBody) {
++  notFound(id)
++  return mockRitual(shop.shopId, id, body)
++}
++
++export async function archiveRitual(shop: ShopContext, id: string) {
++  notFound(id)
++}
++
++export async function recalculateRitual(_shop: ShopContext, id: string) {
++  notFound(id)
++  return {
++    score: 80,
++    breakdown: { availability: 40, completeness: 20, margin: 15 },
++  }
++}
+
+--- /dev/null
++++ b/app/server/src/services/settings.ts
+
+diff --git a/app/server/src/services/settings.ts b/app/server/src/services/settings.ts
+new file mode 100644
+index 0000000..28516f6
+--- /dev/null
++++ b/app/server/src/services/settings.ts
+@@ -0,0 +1,11 @@
++const settingsByShop = new Map<string, { defaultThreshold: number }>()
++
++export function getSettings(shopId: string) {
++  return settingsByShop.get(shopId) ?? { defaultThreshold: 70 }
++}
++
++export function updateSettings(shopId: string, defaultThreshold: number) {
++  const settings = { defaultThreshold }
++  settingsByShop.set(shopId, settings)
++  return settings
++}

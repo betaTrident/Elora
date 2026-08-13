@@ -1,0 +1,122 @@
+import { and, eq, isNull } from 'drizzle-orm'
+import { db } from './client'
+import { rituals, shops, shopSettings } from './schema'
+import { ELORA_PRODUCTS, SAMPLE_RITUALS, resolveRituals, type ResolvedProductIds } from './elora-catalog'
+import { createRitual } from '../services/rituals'
+import {
+  createCatalogProduct,
+  findProductByHandle,
+  ShopifyGraphqlAccessDeniedError,
+} from '../shopify/graphql'
+import type { ShopContext } from '../shopify/auth'
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+async function resolveCatalogProduct(
+  shopDomain: string,
+  accessToken: string,
+  product: (typeof ELORA_PRODUCTS)[number],
+  accessDenied: { logged: boolean },
+): Promise<{ ids: ResolvedProductIds; created: boolean } | null> {
+  const existing = await findProductByHandle(shopDomain, accessToken, product.handle)
+  if (existing) {
+    return { ids: existing, created: false }
+  }
+
+  try {
+    const created = await createCatalogProduct(shopDomain, accessToken, product)
+    return { ids: created, created: true }
+  } catch (err) {
+    if (err instanceof ShopifyGraphqlAccessDeniedError) {
+      if (!accessDenied.logged) {
+        console.log('write_products is required (reinstall app)')
+        accessDenied.logged = true
+      }
+    } else {
+      console.error(`Failed to create product ${product.handle}:`, errorMessage(err))
+    }
+  }
+
+  const retry = await findProductByHandle(shopDomain, accessToken, product.handle)
+  if (retry) {
+    return { ids: retry, created: false }
+  }
+  return null
+}
+
+async function seed() {
+  const [shop] = await db.select().from(shops).where(isNull(shops.uninstalledAt)).limit(1)
+  if (!shop) {
+    console.log('Install app first')
+    process.exit(0)
+  }
+
+  await db
+    .insert(shopSettings)
+    .values({ shopId: shop.id })
+    .onDuplicateKeyUpdate({ set: { shopId: shop.id } })
+
+  const shopDomain = shop.shopDomain
+  const accessToken = shop.accessToken
+  const accessDenied = { logged: false }
+  const productsByHandle = new Map<string, ResolvedProductIds>()
+  let productsCreated = 0
+  let productsReused = 0
+
+  for (const product of ELORA_PRODUCTS) {
+    const resolved = await resolveCatalogProduct(shopDomain, accessToken, product, accessDenied)
+    if (!resolved) continue
+    productsByHandle.set(product.handle, resolved.ids)
+    if (resolved.created) productsCreated += 1
+    else productsReused += 1
+  }
+
+  console.log(`Products: ${productsCreated} created, ${productsReused} reused`)
+
+  const resolvedRituals = resolveRituals(productsByHandle)
+  if (resolvedRituals.length === 0) {
+    console.log(
+      'Skipping rituals: no Shopify product IDs resolved. Grant write_products, reinstall the app, then re-run db:seed.',
+    )
+    console.log(`Rituals: 0 created, ${SAMPLE_RITUALS.length} skipped`)
+    process.exit(0)
+    return
+  }
+
+  const shopCtx: ShopContext = {
+    shopDomain: shop.shopDomain,
+    shopId: shop.id,
+    userId: null,
+  }
+
+  let ritualsCreated = 0
+  let ritualsSkipped = 0
+
+  for (const ritual of resolvedRituals) {
+    const [existing] = await db
+      .select({ id: rituals.id })
+      .from(rituals)
+      .where(and(eq(rituals.shopId, shop.id), eq(rituals.title, ritual.title)))
+      .limit(1)
+
+    if (existing) {
+      ritualsSkipped += 1
+      continue
+    }
+
+    await createRitual(shopCtx, ritual)
+    ritualsCreated += 1
+  }
+
+  ritualsSkipped += SAMPLE_RITUALS.length - resolvedRituals.length
+
+  console.log(`Rituals: ${ritualsCreated} created, ${ritualsSkipped} skipped`)
+  process.exit(0)
+}
+
+seed().catch(err => {
+  console.error(errorMessage(err))
+  process.exit(1)
+})

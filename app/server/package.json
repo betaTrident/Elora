@@ -5,31 +5,34 @@
     "build": "tsc",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
     "test": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint src"
   },
   "dependencies": {
-    "express": "^4",
-    "drizzle-orm": "^0.36",
-    "mysql2": "^3",
-    "zod": "^3",
-    "jsonwebtoken": "^9",
     "@shopify/shopify-api": "latest",
+    "cors": "^2",
     "dotenv": "^16",
-    "cors": "^2"
+    "drizzle-orm": "^0.36",
+    "express": "^4",
+    "jsonwebtoken": "^9",
+    "mysql2": "^3",
+    "zod": "^3"
   },
   "devDependencies": {
-    "tsx": "^4",
-    "typescript": "^5",
-    "drizzle-kit": "^0.27",
-    "vitest": "^2",
-    "supertest": "^7",
+    "@eslint/js": "*",
+    "@types/cors": "*",
     "@types/express": "*",
     "@types/jsonwebtoken": "*",
-    "@types/cors": "*",
-    "eslint": "^9",
     "@types/node": "*",
-    "@eslint/js": "*",
-    "typescript-eslint": "*"
+    "@vitest/coverage-v8": "^2.1.9",
+    "drizzle-kit": "^0.27",
+    "eslint": "^9",
+    "supertest": "^7",
+    "tsx": "^4",
+    "typescript": "^5",
+    "typescript-eslint": "*",
+    "vitest": "^2"
   }
 }

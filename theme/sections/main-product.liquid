@@ -1,0 +1,204 @@
+{%- liquid
+  assign current_variant = product.selected_or_first_available_variant
+  assign crumb_collection = nil
+  assign crumb_handles = 'soft-bloom,warm-skin,bare-linen,scent-wardrobe,face,body' | split: ','
+  for crumb_handle in crumb_handles
+    assign crumb_match = product.collections | where: 'handle', crumb_handle | first
+    if crumb_match != blank
+      assign crumb_collection = crumb_match
+      break
+    endif
+  endfor
+  assign title_words = product.title | split: ' '
+  assign title_rest = product.title | remove_first: title_words.first | strip
+-%}
+
+<nav class="product__breadcrumb page-width" aria-label="{{ 'products.breadcrumb' | t }}">
+  <ol class="breadcrumb__list">
+    <li><a href="{{ routes.all_products_collection_url }}">{{ 'header.shop_all' | t }}</a></li>
+    {%- if crumb_collection != blank -%}
+      <li><a href="{{ crumb_collection.url }}">{{ crumb_collection.title | escape }}</a></li>
+    {%- endif -%}
+    <li aria-current="page">{{ product.title | escape }}</li>
+  </ol>
+</nav>
+
+<section class="product page-width">
+  <div class="product__media-col">
+    <div class="product__media">
+      {%- if product.featured_image -%}
+        <img
+          id="ProductMainImage-{{ section.id }}"
+          src="{{ product.featured_image | image_url: width: 1200 }}"
+          alt="{{ product.featured_image.alt | default: product.title | escape }}"
+          class="product__image"
+          loading="eager"
+          width="1200"
+          height="{{ 1200 | divided_by: product.featured_image.aspect_ratio | round }}"
+        >
+      {%- else -%}
+        {%- capture product_asset_markup -%}
+          {%- render 'product-asset', product: product, class: 'product__image', loading: 'eager' -%}
+        {%- endcapture -%}
+        {%- if product_asset_markup != blank -%}
+          {{ product_asset_markup }}
+        {%- else -%}
+          {{ 'product-1' | placeholder_svg_tag: 'product__image' }}
+        {%- endif -%}
+      {%- endif -%}
+    </div>
+
+    {%- if product.images.size > 1 -%}
+      <div class="product__thumbnails" role="list" aria-label="{{ 'products.images' | t }}">
+        {%- for image in product.images limit: 5 -%}
+          <button
+            class="product__thumb{% if forloop.first %} is-active{% endif %}"
+            type="button"
+            data-thumb-src="{{ image | image_url: width: 1200 }}"
+            aria-label="{{ 'products.view_image' | t: index: forloop.index }}"
+          >
+            <img
+              src="{{ image | image_url: width: 144 }}"
+              alt="{{ image.alt | default: product.title | escape }}"
+              width="72"
+              height="72"
+              loading="lazy"
+            >
+          </button>
+        {%- endfor -%}
+      </div>
+    {%- endif -%}
+  </div>
+
+  <div class="product__details">
+    {%- if section.settings.badge_text != blank -%}
+      <span class="product__badge">{{ section.settings.badge_text | escape }}</span>
+    {%- endif -%}
+
+    <h1 class="product__title">
+      <span>{{ title_words.first | escape }}</span>
+      {%- if title_rest != blank -%}
+        <em>{{ title_rest | escape }}</em>
+      {%- endif -%}
+    </h1>
+
+    <p class="product__price">
+      {%- if current_variant.compare_at_price > current_variant.price -%}
+        <s>{{ current_variant.compare_at_price | money }}</s>
+      {%- endif -%}
+      <span data-product-price>{{ current_variant.price | money }}</span>
+    </p>
+
+    {%- if product.description != blank -%}
+      <div class="product__description">{{ product.description }}</div>
+    {%- endif -%}
+
+    {%- if product.available -%}
+      {%- assign product_form_id = 'ProductForm-' | append: section.id -%}
+      {% form 'product', product, class: 'product__form', id: product_form_id %}
+        {{ form.errors | default_errors }}
+
+        <input
+          type="hidden"
+          id="VariantInput-{{ section.id }}"
+          name="id"
+          value="{{ current_variant.id }}"
+        >
+
+        <div class="product__variants">
+          <span class="product__field-label" id="SizeLabel-{{ section.id }}">{{ 'products.variant' | t }}</span>
+          <div class="variant-pills" role="group" aria-labelledby="SizeLabel-{{ section.id }}">
+            {%- for variant in product.variants -%}
+              <button
+                type="button"
+                class="variant-pill{% if variant.id == current_variant.id %} is-active{% endif %}{% unless variant.available %} is-unavailable{% endunless %}"
+                data-variant-id="{{ variant.id }}"
+                data-variant-price="{{ variant.price | money }}"
+                data-variant-input="#VariantInput-{{ section.id }}"
+                {% unless variant.available %}disabled{% endunless %}
+              >
+                {{ variant.title | escape }}
+              </button>
+            {%- endfor -%}
+          </div>
+        </div>
+
+        <div class="product__qty-row">
+          <span class="product__field-label" id="QtyLabel-{{ section.id }}">{{ 'products.quantity' | t }}</span>
+          <div class="qty-stepper" role="group" aria-labelledby="QtyLabel-{{ section.id }}">
+            <button type="button" class="qty-stepper__btn" data-qty-action="minus" aria-label="{{ 'products.decrease_quantity' | t }}">-</button>
+            <span class="qty-stepper__val" aria-live="polite">1</span>
+            <button type="button" class="qty-stepper__btn" data-qty-action="plus" aria-label="{{ 'products.increase_quantity' | t }}">+</button>
+          </div>
+          <input type="hidden" name="quantity" class="qty-stepper__input" value="1" min="1">
+        </div>
+
+        <button type="submit" class="btn btn--full">{{ 'products.add_to_cart' | t }}</button>
+        <button
+          type="button"
+          class="btn btn--secondary btn--full"
+          data-add-to-ritual
+        >
+          {{ 'products.add_to_ritual' | t }}
+        </button>
+      {% endform %}
+    {%- else -%}
+      <button type="button" class="btn btn--full" disabled>{{ 'products.sold_out' | t }}</button>
+    {%- endif -%}
+
+    <div class="product__ingredients-wrap">
+      <h2 class="product__ingredients-heading">{{ 'products.key_ingredients' | t }}</h2>
+      {% render 'product-ingredients', product: product %}
+    </div>
+
+    <div class="product__trust">
+      <div class="product__trust-item">
+        <span class="product__trust-icon" aria-hidden="true">{% render 'icon-truck' %}</span>
+        <p>{{ 'products_trust.shipping' | t }}</p>
+      </div>
+      <div class="product__trust-item">
+        <span class="product__trust-icon" aria-hidden="true">{% render 'icon-box' %}</span>
+        <p>{{ 'products_trust.returns' | t }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{%- assign related_collection = collections['skincare-essentials'] -%}
+{%- if crumb_collection != blank -%}
+  {%- assign related_collection = crumb_collection -%}
+{%- endif -%}
+{%- if related_collection != blank and related_collection.products.size > 1 -%}
+  <section class="product__related page-width">
+    <h2 class="product__related-heading">{{ 'products.related' | t }}</h2>
+    <ul class="product-grid" role="list">
+      {%- for related in related_collection.products limit: 5 -%}
+        {%- unless related.id == product.id -%}
+          <li>{% render 'product-card', product: related %}</li>
+        {%- endunless -%}
+      {%- endfor -%}
+    </ul>
+  </section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Product",
+  "enabled_on": {
+    "templates": ["product"]
+  },
+  "settings": [
+    {
+      "type": "text",
+      "id": "badge_text",
+      "label": "Badge text",
+      "placeholder": "Best Seller"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Product"
+    }
+  ]
+}
+{% endschema %}

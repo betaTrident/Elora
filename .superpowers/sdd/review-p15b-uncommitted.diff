@@ -1,0 +1,964 @@
+﻿# Review package Task 15B
+# Base: 40ab560c9bdfdcf505217243b781614c6a96f7a4 (uncommitted working tree)
+# Files: app/web/src/components/AlertBanner.tsx, app/web/src/pages/Dashboard/__tests__/Dashboard.test.tsx, app/web/src/pages/Dashboard/index.tsx, app/web/src/pages/Rituals/RitualForm/__tests__/RitualForm.test.tsx, app/web/src/pages/Rituals/RitualForm/index.tsx, app/web/src/pages/Rituals/__tests__/Rituals.test.tsx, app/web/src/pages/Rituals/index.tsx, theme/sections/soft-ritual-builder.liquid
+
+ app/web/src/components/AlertBanner.tsx             |  11 +-
+ .../pages/Dashboard/__tests__/Dashboard.test.tsx   |  34 +++++
+ app/web/src/pages/Dashboard/index.tsx              |  33 ++++-
+ .../RitualForm/__tests__/RitualForm.test.tsx       | 156 ++++++++++++++++++++-
+ app/web/src/pages/Rituals/RitualForm/index.tsx     | 116 +++++++++++++--
+ .../src/pages/Rituals/__tests__/Rituals.test.tsx   |  27 ++++
+ app/web/src/pages/Rituals/index.tsx                |   5 +
+ theme/sections/soft-ritual-builder.liquid          |   6 +
+ 8 files changed, 372 insertions(+), 16 deletions(-)
+
+
+diff --git a/app/web/src/components/AlertBanner.tsx b/app/web/src/components/AlertBanner.tsx
+index f326f3f..ab3c28e 100644
+--- a/app/web/src/components/AlertBanner.tsx
++++ b/app/web/src/components/AlertBanner.tsx
+@@ -1,25 +1,34 @@
+ import { Banner, BlockStack } from '@shopify/polaris'
+ import type { Alert } from '../types'
+ 
+ interface AlertBannerProps {
+   alerts: Pick<Alert, 'id' | 'severity' | 'message' | 'type'>[]
++  onResolve?: (id: string) => void
+ }
+ 
+-export function AlertBanner({ alerts }: AlertBannerProps) {
++export function AlertBanner({ alerts, onResolve }: AlertBannerProps) {
+   if (alerts.length === 0) {
+     return null
+   }
+ 
+   return (
+     <BlockStack gap="200">
+       {alerts.map((alert) => (
+         <Banner
+           key={alert.id}
+           tone={alert.severity === 'critical' ? 'critical' : 'warning'}
++          action={
++            onResolve
++              ? {
++                  content: 'Resolve',
++                  onAction: () => onResolve(alert.id),
++                }
++              : undefined
++          }
+         >
+           <p>{alert.message}</p>
+         </Banner>
+       ))}
+     </BlockStack>
+   )
+ }
+diff --git a/app/web/src/pages/Dashboard/__tests__/Dashboard.test.tsx b/app/web/src/pages/Dashboard/__tests__/Dashboard.test.tsx
+index 8eeb101..d5ac025 100644
+--- a/app/web/src/pages/Dashboard/__tests__/Dashboard.test.tsx
++++ b/app/web/src/pages/Dashboard/__tests__/Dashboard.test.tsx
+@@ -1,31 +1,34 @@
+ import { describe, it, expect, vi, beforeEach } from 'vitest'
+ import { render, screen } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
+ import { MemoryRouter } from 'react-router-dom'
+ import { AppProvider } from '@shopify/polaris'
+ import enTranslations from '@shopify/polaris/locales/en.json'
+ import type { ReactNode } from 'react'
+ 
+ vi.mock('../../../services/api', () => ({
+   api: {
+     get: vi.fn(),
++    post: vi.fn(),
+   },
+ }))
+ 
+ vi.mock('@shopify/app-bridge-react', () => ({
+   TitleBar: () => null,
+ }))
+ 
+ import { Dashboard } from '../index'
+ import { api } from '../../../services/api'
+ 
+ const mockGet = api.get as ReturnType<typeof vi.fn>
++const mockPost = api.post as ReturnType<typeof vi.fn>
+ 
+ function Wrapper({ children }: { children: ReactNode }) {
+   return (
+     <MemoryRouter>
+       <AppProvider i18n={enTranslations}>{children}</AppProvider>
+     </MemoryRouter>
+   )
+ }
+ 
+ const emptyData = {
+@@ -99,20 +102,51 @@ describe('Dashboard', () => {
+             status: 'open',
+             createdAt: new Date().toISOString(),
+           },
+         ])
+       return Promise.reject(new Error(`unexpected path: ${path}`))
+     })
+     render(<Dashboard />, { wrapper: Wrapper })
+     expect(await screen.findByText(alertMessage)).toBeTruthy()
+   })
+ 
++  it('resolves an alert when Resolve is clicked', async () => {
++    const user = userEvent.setup()
++    const alertMessage = 'Routine score 45 is below threshold 70'
++    mockGet.mockImplementation((path: string) => {
++      if (path === '/api/dashboard') return Promise.resolve(fullData)
++      if (path === '/api/alerts')
++        return Promise.resolve([
++          {
++            id: 'a1',
++            ritualId: 'r1',
++            type: 'low_score',
++            severity: 'warning',
++            message: alertMessage,
++            status: 'open',
++            createdAt: new Date().toISOString(),
++          },
++        ])
++      return Promise.reject(new Error(`unexpected path: ${path}`))
++    })
++    mockPost.mockResolvedValueOnce({})
++
++    render(<Dashboard />, { wrapper: Wrapper })
++    expect(await screen.findByText(alertMessage)).toBeTruthy()
++
++    await user.click(screen.getByRole('button', { name: 'Resolve' }))
++
++    expect(mockPost).toHaveBeenCalledWith('/api/alerts/a1/resolve', {})
++    expect(await screen.findByText('Alert resolved')).toBeTruthy()
++    expect(screen.queryByText(alertMessage)).toBeNull()
++  })
++
+   it('does not show alert message when /api/alerts returns empty array', async () => {
+     mockGet.mockImplementation((path: string) => {
+       if (path === '/api/dashboard') return Promise.resolve(fullData)
+       if (path === '/api/alerts') return Promise.resolve([])
+       return Promise.reject(new Error(`unexpected path: ${path}`))
+     })
+     render(<Dashboard />, { wrapper: Wrapper })
+     await screen.findByText('Total routines')
+     expect(screen.queryByText(/below threshold/i)).toBeNull()
+   })
+diff --git a/app/web/src/pages/Dashboard/index.tsx b/app/web/src/pages/Dashboard/index.tsx
+index 134155f..911e821 100644
+--- a/app/web/src/pages/Dashboard/index.tsx
++++ b/app/web/src/pages/Dashboard/index.tsx
+@@ -1,29 +1,39 @@
+ import { useEffect, useState } from 'react'
+-import { Banner, BlockStack, Grid, Layout, SkeletonBodyText, SkeletonPage } from '@shopify/polaris'
++import {
++  Banner,
++  BlockStack,
++  Grid,
++  Layout,
++  SkeletonBodyText,
++  SkeletonPage,
++  Toast,
++} from '@shopify/polaris'
+ import { PageLayout } from '../../components/PageLayout'
+ import { EmptyState } from '../../components/EmptyState'
+ import { AlertBanner } from '../../components/AlertBanner'
+ import type { Alert, DashboardData } from '../../types'
+ import { api } from '../../services/api'
+ import { KpiCards } from './KpiCards'
+ import { RitualHealthTable } from './RitualHealthTable'
+ import { RecentActivity } from './RecentActivity'
+ 
+ const PRIMARY_ACTION = { content: 'Create routine', url: '/rituals/new' }
+ 
+ export function Dashboard() {
+   const [data, setData] = useState<DashboardData | null>(null)
+   const [alerts, setAlerts] = useState<Alert[]>([])
+   const [loading, setLoading] = useState(true)
+   const [error, setError] = useState<Error | null>(null)
+   const [alertsError, setAlertsError] = useState<Error | null>(null)
++  const [resolveError, setResolveError] = useState<Error | null>(null)
++  const [toast, setToast] = useState<string | null>(null)
+ 
+   function fetchAlerts() {
+     setAlertsError(null)
+     api
+       .get<Alert[]>('/api/alerts')
+       .then((openAlerts) => setAlerts(openAlerts))
+       .catch((e: unknown) =>
+         setAlertsError(e instanceof Error ? e : new Error(String(e))),
+       )
+   }
+@@ -38,20 +48,33 @@ export function Dashboard() {
+         setError(e instanceof Error ? e : new Error(String(e))),
+       )
+       .finally(() => setLoading(false))
+   }
+ 
+   useEffect(() => {
+     fetchDashboard()
+     fetchAlerts()
+   }, [])
+ 
++  async function handleResolveAlert(id: string) {
++    setResolveError(null)
++    try {
++      await api.post(`/api/alerts/${id}/resolve`, {})
++      setAlerts((current) => current.filter((alert) => alert.id !== id))
++      setToast('Alert resolved')
++    } catch (error: unknown) {
++      setResolveError(
++        error instanceof Error ? error : new Error('Failed to resolve alert.'),
++      )
++    }
++  }
++
+   if (loading) {
+     return (
+       <div aria-live="polite" aria-atomic="true">
+         <SkeletonPage primaryAction>
+           <Layout>
+             <Layout.Section>
+               <SkeletonBodyText lines={4} />
+             </Layout.Section>
+             <Layout.Section>
+               <SkeletonBodyText lines={8} />
+@@ -106,31 +129,37 @@ export function Dashboard() {
+         <BlockStack gap="400">
+           {alertsError && (
+             <Banner
+               tone="critical"
+               title="Alerts failed to load"
+               action={{ content: 'Retry', onAction: () => fetchAlerts() }}
+             >
+               <p>{alertsError.message}</p>
+             </Banner>
+           )}
+-          <AlertBanner alerts={alerts} />
++          {resolveError && (
++            <Banner tone="critical" title="Could not resolve alert">
++              <p>{resolveError.message}</p>
++            </Banner>
++          )}
++          <AlertBanner alerts={alerts} onResolve={(id) => void handleResolveAlert(id)} />
+           <Layout>
+             <Layout.Section>
+               <KpiCards counts={data.counts} />
+             </Layout.Section>
+             <Layout.Section>
+               <Grid>
+                 <Grid.Cell columnSpan={{ xs: 6, lg: 8 }}>
+                   <RitualHealthTable rituals={data.worst5} />
+                 </Grid.Cell>
+                 <Grid.Cell columnSpan={{ xs: 6, lg: 4 }}>
+                   <RecentActivity activity={data.recentActivity} />
+                 </Grid.Cell>
+               </Grid>
+             </Layout.Section>
+           </Layout>
+         </BlockStack>
+       </div>
++      {toast && <Toast content={toast} onDismiss={() => setToast(null)} />}
+     </PageLayout>
+   )
+ }
+diff --git a/app/web/src/pages/Rituals/RitualForm/__tests__/RitualForm.test.tsx b/app/web/src/pages/Rituals/RitualForm/__tests__/RitualForm.test.tsx
+index 8ae4db8..57ba6e6 100644
+--- a/app/web/src/pages/Rituals/RitualForm/__tests__/RitualForm.test.tsx
++++ b/app/web/src/pages/Rituals/RitualForm/__tests__/RitualForm.test.tsx
+@@ -9,20 +9,27 @@ import type { ReactNode } from 'react'
+ vi.mock('../../../../services/api', () => ({
+   api: {
+     get: vi.fn(),
+     post: vi.fn(),
+     put: vi.fn(),
+   },
+ }))
+ 
+ vi.mock('@shopify/app-bridge-react', () => ({
+   TitleBar: () => null,
++  SaveBar: ({
++    open,
++    children,
++  }: {
++    open?: boolean
++    children?: ReactNode
++  }) => (open ? <div data-testid="save-bar">{children}</div> : null),
+ }))
+ 
+ import { RitualForm } from '../index'
+ import { api } from '../../../../services/api'
+ 
+ const mockGet = api.get as ReturnType<typeof vi.fn>
+ const mockPost = api.post as ReturnType<typeof vi.fn>
+ const mockPut = api.put as ReturnType<typeof vi.fn>
+ 
+ const sampleBreakdown = {
+@@ -79,21 +86,21 @@ describe('RitualForm', () => {
+       },
+       configurable: true,
+     })
+   })
+ 
+   it('does not POST when submitting without components', async () => {
+     const user = userEvent.setup()
+     render(<RitualForm />, { wrapper: NewWrapper })
+ 
+     await user.type(screen.getByLabelText('Routine title'), 'Morning kit')
+-    await user.click(screen.getByRole('button', { name: 'Save' }))
++    await user.click(screen.getAllByRole('button', { name: 'Save' })[0])
+ 
+     expect(mockPost).not.toHaveBeenCalled()
+     expect(mockPut).not.toHaveBeenCalled()
+     expect(await screen.findByText(/add at least one product/i)).toBeTruthy()
+   })
+ 
+   it('shows three breakdown labels after successful save with breakdown', async () => {
+     const user = userEvent.setup()
+     mockGet.mockResolvedValueOnce({
+       id: 'ritual-1',
+@@ -114,20 +121,167 @@ describe('RitualForm', () => {
+     mockPut.mockResolvedValueOnce(sampleSaveResponse)
+ 
+     render(<RitualForm />, { wrapper: EditWrapper })
+ 
+     await screen.findByDisplayValue('Morning kit')
+     await user.click(screen.getByRole('button', { name: 'Save' }))
+ 
+     expect(await screen.findByText(/Availability ΓÇö 40\/50/)).toBeTruthy()
+     expect(screen.getByText(/Completeness ΓÇö 15\/20/)).toBeTruthy()
+     expect(screen.getByText(/Margin ΓÇö 20\/30/)).toBeTruthy()
++    expect(screen.getByText('Routine saved')).toBeTruthy()
++  })
++
++  it('shows Routine saved toast and score banner after create', async () => {
++    const user = userEvent.setup()
++    Object.defineProperty(globalThis, 'shopify', {
++      value: {
++        idToken: async () => 'test-token',
++        resourcePicker: async () => [
++          {
++            id: 'gid://shopify/Product/1',
++            title: 'Cleanser',
++            variants: [{ id: 'v1' }],
++          },
++        ],
++      },
++      configurable: true,
++    })
++    mockPost.mockResolvedValueOnce(sampleSaveResponse)
++    mockGet.mockResolvedValueOnce({
++      id: 'ritual-1',
++      title: 'Morning kit',
++      description: '',
++      scoreThreshold: 70,
++      status: 'active',
++      lastScore: 75,
++      components: [
++        {
++          shopifyProductId: 'gid://shopify/Product/1',
++          shopifyVariantId: 'v1',
++          role: 'cleanse',
++          quantity: 1,
++          productTitleCache: 'Cleanser',
++        },
++      ],
++    })
++
++    render(<RitualForm />, { wrapper: NewWrapper })
++
++    await user.type(screen.getByLabelText('Routine title'), 'Morning kit')
++    await user.click(screen.getByRole('button', { name: 'Add product' }))
++    await user.click(screen.getAllByRole('button', { name: 'Save' })[0])
++
++    expect(mockPost).toHaveBeenCalledWith(
++      '/api/rituals',
++      expect.objectContaining({ title: 'Morning kit' }),
++    )
++    expect(await screen.findByText('Routine saved')).toBeTruthy()
++    expect(await screen.findByText(/Availability ΓÇö 40\/50/)).toBeTruthy()
++  })
++
++  it('shows the save bar when the form is dirty and discard restores the snapshot', async () => {
++    const user = userEvent.setup()
++    mockGet.mockResolvedValueOnce({
++      id: 'ritual-1',
++      title: 'Morning kit',
++      description: '',
++      scoreThreshold: 70,
++      status: 'active',
++      lastScore: 75,
++      components: [
++        {
++          shopifyProductId: 'p1',
++          role: 'cleanse',
++          quantity: 1,
++          productTitleCache: 'Cleanser',
++        },
++      ],
++    })
++
++    render(<RitualForm />, { wrapper: EditWrapper })
++
++    await screen.findByDisplayValue('Morning kit')
++    expect(screen.queryByTestId('save-bar')).toBeNull()
++
++    const titleField = screen.getByLabelText('Routine title')
++    await user.clear(titleField)
++    await user.type(titleField, 'Evening kit')
++
++    expect(screen.getByTestId('save-bar')).toBeTruthy()
++    await user.click(screen.getByRole('button', { name: 'Discard' }))
++
++    expect(screen.getByDisplayValue('Morning kit')).toBeTruthy()
++    expect(screen.queryByTestId('save-bar')).toBeNull()
++  })
++
++  it('hides the save bar after a successful save', async () => {
++    const user = userEvent.setup()
++    mockGet.mockResolvedValueOnce({
++      id: 'ritual-1',
++      title: 'Morning kit',
++      description: '',
++      scoreThreshold: 70,
++      status: 'active',
++      lastScore: 75,
++      components: [
++        {
++          shopifyProductId: 'p1',
++          role: 'cleanse',
++          quantity: 1,
++          productTitleCache: 'Cleanser',
++        },
++      ],
++    })
++    mockPut.mockResolvedValueOnce(sampleSaveResponse)
++
++    render(<RitualForm />, { wrapper: EditWrapper })
++
++    await screen.findByDisplayValue('Morning kit')
++    await user.type(screen.getByLabelText('Routine title'), ' updated')
++    expect(screen.getByTestId('save-bar')).toBeTruthy()
++
++    await user.click(screen.getAllByRole('button', { name: 'Save' })[0])
++
++    expect(await screen.findByText('Routine saved')).toBeTruthy()
++    expect(screen.queryByTestId('save-bar')).toBeNull()
++  })
++
++  it('retries loading the routine when Retry is clicked', async () => {
++    const user = userEvent.setup()
++    mockGet
++      .mockRejectedValueOnce(new Error('Network error'))
++      .mockResolvedValueOnce({
++        id: 'ritual-1',
++        title: 'Morning kit',
++        description: '',
++        scoreThreshold: 70,
++        status: 'active',
++        lastScore: 75,
++        components: [
++          {
++            shopifyProductId: 'p1',
++            role: 'cleanse',
++            quantity: 1,
++            productTitleCache: 'Cleanser',
++          },
++        ],
++      })
++
++    render(<RitualForm />, { wrapper: EditWrapper })
++
++    expect(await screen.findByText('Routine failed to load')).toBeTruthy()
++    await user.click(screen.getByRole('button', { name: 'Retry' }))
++
++    expect(await screen.findByDisplayValue('Morning kit')).toBeTruthy()
++    expect(mockGet).toHaveBeenCalledTimes(2)
++    expect(mockGet).toHaveBeenNthCalledWith(2, '/api/rituals/ritual-1')
+   })
+ 
+   it('shows Recalculate on edit form and POSTs recalculate endpoint', async () => {
+     const user = userEvent.setup()
+     mockGet.mockResolvedValueOnce({
+       id: 'ritual-1',
+       title: 'Morning kit',
+       description: '',
+       scoreThreshold: 70,
+       status: 'active',
+diff --git a/app/web/src/pages/Rituals/RitualForm/index.tsx b/app/web/src/pages/Rituals/RitualForm/index.tsx
+index a550633..f8e34c2 100644
+--- a/app/web/src/pages/Rituals/RitualForm/index.tsx
++++ b/app/web/src/pages/Rituals/RitualForm/index.tsx
+@@ -1,75 +1,148 @@
+-import { useEffect, useState } from 'react'
++import { useCallback, useEffect, useMemo, useState } from 'react'
+ import {
+   Banner,
+   BlockStack,
+   Layout,
+   SkeletonBodyText,
+   SkeletonPage,
+   TextField,
++  Toast,
+ } from '@shopify/polaris'
+-import { useNavigate, useParams } from 'react-router-dom'
++import { SaveBar } from '@shopify/app-bridge-react'
++import { useLocation, useNavigate, useParams } from 'react-router-dom'
+ import { PageLayout } from '../../../components/PageLayout'
+ import { ScoreBadge } from '../../../components/ScoreBadge'
+ import { ScoreBreakdown } from '../../../components/ScoreBreakdown'
+ import type {
+   RitualDetail,
+   RitualRecalculateResponse,
+   RitualSaveResponse,
+   ScoreBreakdown as ScoreBreakdownType,
+ } from '../../../types'
+ import { api } from '../../../services/api'
+ import { mapScoreBreakdownToItems } from '../../../utils/mapScoreBreakdown'
+ import { ComponentList } from './ComponentList'
+ 
+ interface ScoreDisplay {
+   score: number
+   threshold: number
+   breakdown: ScoreBreakdownType
+ }
+ 
++interface FormSnapshot {
++  title: string
++  description: string
++  scoreThreshold: string
++  components: RitualDetail['components']
++}
++
++interface RitualFormLocationState {
++  toast?: string
++  scoreDisplay?: ScoreDisplay
++}
++
++const EMPTY_SNAPSHOT: FormSnapshot = {
++  title: '',
++  description: '',
++  scoreThreshold: '70',
++  components: [],
++}
++
++function captureSnapshot(
++  title: string,
++  description: string,
++  scoreThreshold: string,
++  components: RitualDetail['components'],
++): FormSnapshot {
++  return {
++    title,
++    description,
++    scoreThreshold,
++    components: components.map((component) => ({ ...component })),
++  }
++}
++
+ export function RitualForm() {
+   const { id } = useParams<{ id?: string }>()
+   const navigate = useNavigate()
++  const location = useLocation()
+   const isEdit = Boolean(id)
+   const pageTitle = isEdit ? 'Edit routine' : 'Create routine'
++  const locationState = location.state as RitualFormLocationState | null
+ 
+   const [title, setTitle] = useState('')
+   const [description, setDescription] = useState('')
+   const [scoreThreshold, setScoreThreshold] = useState('70')
+   const [components, setComponents] = useState<RitualDetail['components']>([])
++  const [snapshot, setSnapshot] = useState<FormSnapshot>(EMPTY_SNAPSHOT)
+   const [loading, setLoading] = useState(isEdit)
+   const [submitting, setSubmitting] = useState(false)
+   const [recalculating, setRecalculating] = useState(false)
+   const [loadError, setLoadError] = useState<Error | null>(null)
+   const [validationError, setValidationError] = useState<string | null>(null)
+-  const [scoreDisplay, setScoreDisplay] = useState<ScoreDisplay | null>(null)
++  const [scoreDisplay, setScoreDisplay] = useState<ScoreDisplay | null>(
++    locationState?.scoreDisplay ?? null,
++  )
++  const [toast, setToast] = useState<string | null>(locationState?.toast ?? null)
+ 
+-  useEffect(() => {
++  const fetchRitual = useCallback(() => {
+     if (!id) return
+ 
+     setLoading(true)
+     setLoadError(null)
+     api
+       .get<RitualDetail>(`/api/rituals/${id}`)
+       .then((ritual) => {
+-        setTitle(ritual.title)
+-        setDescription(ritual.description ?? '')
+-        setScoreThreshold(String(ritual.scoreThreshold))
+-        setComponents(ritual.components)
++        const nextTitle = ritual.title
++        const nextDescription = ritual.description ?? ''
++        const nextThreshold = String(ritual.scoreThreshold)
++        const nextComponents = ritual.components
++        setTitle(nextTitle)
++        setDescription(nextDescription)
++        setScoreThreshold(nextThreshold)
++        setComponents(nextComponents)
++        setSnapshot(
++          captureSnapshot(
++            nextTitle,
++            nextDescription,
++            nextThreshold,
++            nextComponents,
++          ),
++        )
+       })
+       .catch((error: unknown) =>
+         setLoadError(error instanceof Error ? error : new Error(String(error))),
+       )
+       .finally(() => setLoading(false))
+   }, [id])
+ 
++  useEffect(() => {
++    if (!id) return
++    fetchRitual()
++  }, [id, fetchRitual])
++
++  const isDirty = useMemo(
++    () =>
++      JSON.stringify(
++        captureSnapshot(title, description, scoreThreshold, components),
++      ) !== JSON.stringify(snapshot),
++    [title, description, scoreThreshold, components, snapshot],
++  )
++
++  function handleDiscard() {
++    setTitle(snapshot.title)
++    setDescription(snapshot.description)
++    setScoreThreshold(snapshot.scoreThreshold)
++    setComponents(snapshot.components.map((component) => ({ ...component })))
++  }
++
+   async function handleSubmit() {
+     setValidationError(null)
+     setScoreDisplay(null)
+ 
+     if (components.length === 0) {
+       setValidationError('Add at least one product before saving this routine.')
+       return
+     }
+ 
+     const body = {
+@@ -86,27 +159,32 @@ export function RitualForm() {
+         sortOrder: component.sortOrder ?? index,
+       })),
+     }
+ 
+     setSubmitting(true)
+     try {
+       const result = isEdit
+         ? await api.put<RitualSaveResponse>(`/api/rituals/${id}`, body)
+         : await api.post<RitualSaveResponse>('/api/rituals', body)
+ 
+-      setScoreDisplay({
++      const nextScore: ScoreDisplay = {
+         score: result.score,
+         threshold: result.threshold,
+         breakdown: result.breakdown,
+-      })
++      }
++      setScoreDisplay(nextScore)
++      setToast('Routine saved')
++      setSnapshot(captureSnapshot(title, description, scoreThreshold, components))
+       if (!isEdit) {
+-        navigate(`/rituals/${result.id}/edit`)
++        navigate(`/rituals/${result.id}/edit`, {
++          state: { toast: 'Routine saved', scoreDisplay: nextScore },
++        })
+       }
+     } catch (error: unknown) {
+       setValidationError(
+         error instanceof Error ? error.message : 'Failed to save routine.',
+       )
+     } finally {
+       setSubmitting(false)
+     }
+   }
+ 
+@@ -147,21 +225,22 @@ export function RitualForm() {
+       </div>
+     )
+   }
+ 
+   if (loadError) {
+     return (
+       <PageLayout title={pageTitle}>
+         <Banner
+           tone="critical"
+           title="Routine failed to load"
+-          action={{ content: 'Back to routines', url: '/rituals' }}
++          action={{ content: 'Retry', onAction: () => fetchRitual() }}
++          secondaryAction={{ content: 'Back to routines', url: '/rituals' }}
+         >
+           <p>{loadError.message}</p>
+         </Banner>
+       </PageLayout>
+     )
+   }
+ 
+   return (
+     <PageLayout
+       title={pageTitle}
+@@ -175,20 +254,32 @@ export function RitualForm() {
+           ? [
+               {
+                 content: 'Recalculate',
+                 onAction: () => void handleRecalculate(),
+                 loading: recalculating,
+               },
+             ]
+           : undefined
+       }
+     >
++      <SaveBar id="ritual-form-save-bar" open={isDirty}>
++        <button
++          type="button"
++          variant="primary"
++          onClick={() => void handleSubmit()}
++        >
++          Save
++        </button>
++        <button type="button" onClick={handleDiscard}>
++          Discard
++        </button>
++      </SaveBar>
+       <div aria-live="polite" aria-atomic="true">
+         <BlockStack gap="400">
+           {scoreDisplay && (
+             <Banner tone="success" title="Health score updated">
+               <BlockStack gap="200">
+                 <p>
+                   Health score:{' '}
+                   <ScoreBadge
+                     score={scoreDisplay.score}
+                     threshold={scoreDisplay.threshold}
+@@ -224,13 +315,14 @@ export function RitualForm() {
+             type="number"
+             value={scoreThreshold}
+             onChange={setScoreThreshold}
+             autoComplete="off"
+             min={0}
+             max={100}
+           />
+           <ComponentList components={components} onChange={setComponents} />
+         </BlockStack>
+       </div>
++      {toast && <Toast content={toast} onDismiss={() => setToast(null)} />}
+     </PageLayout>
+   )
+ }
+diff --git a/app/web/src/pages/Rituals/__tests__/Rituals.test.tsx b/app/web/src/pages/Rituals/__tests__/Rituals.test.tsx
+index 56d1a80..c56b5a8 100644
+--- a/app/web/src/pages/Rituals/__tests__/Rituals.test.tsx
++++ b/app/web/src/pages/Rituals/__tests__/Rituals.test.tsx
+@@ -1,43 +1,70 @@
+ import { describe, it, expect, vi, beforeEach } from 'vitest'
+ import { render, screen } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
+ import { MemoryRouter } from 'react-router-dom'
+ import { AppProvider } from '@shopify/polaris'
+ import enTranslations from '@shopify/polaris/locales/en.json'
+ import type { ReactNode } from 'react'
+ 
+ vi.mock('../../../services/api', () => ({
+   api: {
+     get: vi.fn(),
+     post: vi.fn(),
+   },
+ }))
+ 
+ vi.mock('@shopify/app-bridge-react', () => ({
+   TitleBar: () => null,
+ }))
+ 
+ import { Rituals } from '../index'
+ import { api } from '../../../services/api'
+ 
+ const mockGet = api.get as ReturnType<typeof vi.fn>
++const mockPost = api.post as ReturnType<typeof vi.fn>
+ 
+ function Wrapper({ children }: { children: ReactNode }) {
+   return (
+     <MemoryRouter>
+       <AppProvider i18n={enTranslations}>{children}</AppProvider>
+     </MemoryRouter>
+   )
+ }
+ 
+ describe('Rituals', () => {
+   beforeEach(() => {
+     vi.clearAllMocks()
+   })
+ 
+   it('shows empty state heading when api.get returns []', async () => {
+     mockGet.mockResolvedValueOnce([])
+     render(<Rituals />, { wrapper: Wrapper })
+     const heading = await screen.findByText('No routines yet')
+     expect(heading).toBeTruthy()
+   })
++
++  it('shows Routine archived toast after confirming archive', async () => {
++    const user = userEvent.setup()
++    mockGet.mockResolvedValueOnce([
++      {
++        id: 'r1',
++        title: 'Morning kit',
++        lastScore: 75,
++        scoreThreshold: 70,
++        lastScoredAt: new Date().toISOString(),
++        status: 'active',
++      },
++    ])
++    mockPost.mockResolvedValueOnce({})
++
++    render(<Rituals />, { wrapper: Wrapper })
++
++    await screen.findByText('Morning kit')
++    await user.click(screen.getByRole('button', { name: 'Archive' }))
++    const confirmButtons = screen.getAllByRole('button', { name: 'Archive' })
++    await user.click(confirmButtons[confirmButtons.length - 1])
++
++    expect(mockPost).toHaveBeenCalledWith('/api/rituals/r1/archive', {})
++    expect(await screen.findByText('Routine archived')).toBeTruthy()
++  })
+ })
+diff --git a/app/web/src/pages/Rituals/index.tsx b/app/web/src/pages/Rituals/index.tsx
+index 9cf2c56..d46c414 100644
+--- a/app/web/src/pages/Rituals/index.tsx
++++ b/app/web/src/pages/Rituals/index.tsx
+@@ -3,36 +3,38 @@ import {
+   Banner,
+   BlockStack,
+   Button,
+   IndexTable,
+   Layout,
+   Link,
+   Modal,
+   SkeletonBodyText,
+   SkeletonPage,
+   Text,
++  Toast,
+ } from '@shopify/polaris'
+ import { PageLayout } from '../../components/PageLayout'
+ import { EmptyState } from '../../components/EmptyState'
+ import { ScoreBadge } from '../../components/ScoreBadge'
+ import type { RitualListItem } from '../../types'
+ import { api } from '../../services/api'
+ import { formatRelativeTime } from '../../utils/formatRelativeTime'
+ 
+ const PRIMARY_ACTION = { content: 'Create routine', url: '/rituals/new' }
+ 
+ export function Rituals() {
+   const [rituals, setRituals] = useState<RitualListItem[]>([])
+   const [loading, setLoading] = useState(true)
+   const [error, setError] = useState<Error | null>(null)
+   const [archiveTarget, setArchiveTarget] = useState<RitualListItem | null>(null)
+   const [archiving, setArchiving] = useState(false)
++  const [toast, setToast] = useState<string | null>(null)
+ 
+   function fetchRituals() {
+     setLoading(true)
+     setError(null)
+     api
+       .get<RitualListItem[]>('/api/rituals')
+       .then((items) => setRituals(items))
+       .catch((fetchError: unknown) =>
+         setError(fetchError instanceof Error ? fetchError : new Error(String(fetchError))),
+       )
+@@ -46,20 +48,21 @@ export function Rituals() {
+   async function handleArchiveConfirm() {
+     if (!archiveTarget) return
+ 
+     setArchiving(true)
+     try {
+       await api.post(`/api/rituals/${archiveTarget.id}/archive`, {})
+       setRituals((current) =>
+         current.filter((ritual) => ritual.id !== archiveTarget.id),
+       )
+       setArchiveTarget(null)
++      setToast('Routine archived')
+     } catch (archiveError: unknown) {
+       setError(
+         archiveError instanceof Error
+           ? archiveError
+           : new Error('Failed to archive routine.'),
+       )
+       setArchiveTarget(null)
+     } finally {
+       setArchiving(false)
+     }
+@@ -94,20 +97,21 @@ export function Rituals() {
+   }
+ 
+   if (rituals.length === 0) {
+     return (
+       <PageLayout title="Routines" primaryAction={PRIMARY_ACTION}>
+         <EmptyState
+           heading="No routines yet"
+           description="Create a routine kit to start tracking product health."
+           action={{ content: 'Create routine', url: '/rituals/new' }}
+         />
++        {toast && <Toast content={toast} onDismiss={() => setToast(null)} />}
+       </PageLayout>
+     )
+   }
+ 
+   return (
+     <PageLayout title="Routines" primaryAction={PRIMARY_ACTION}>
+       <div aria-live="polite" aria-atomic="true">
+         <BlockStack gap="300">
+           <Text as="p" variant="bodyMd">
+             All active routine kits appear here. Create, edit, or archive kits from
+@@ -170,13 +174,14 @@ export function Rituals() {
+           ]}
+         >
+           <Modal.Section>
+             <p>
+               Archive &ldquo;{archiveTarget?.title}&rdquo;? It will be removed from
+               active lists but kept in your store history.
+             </p>
+           </Modal.Section>
+         </Modal>
+       </div>
++      {toast && <Toast content={toast} onDismiss={() => setToast(null)} />}
+     </PageLayout>
+   )
+ }
+diff --git a/theme/sections/soft-ritual-builder.liquid b/theme/sections/soft-ritual-builder.liquid
+index eb6691d..ddbaf2f 100644
+--- a/theme/sections/soft-ritual-builder.liquid
++++ b/theme/sections/soft-ritual-builder.liquid
+@@ -198,20 +198,26 @@
+     margin-top: var(--spacing-sm);
+   }
+ 
+   @media (max-width: 699px) {
+     .ritual-builder__result-products {
+       grid-template-columns: repeat(3, minmax(0, 1fr));
+       gap: var(--spacing-sm);
+     }
+   }
+ 
++  @media (max-width: 479px) {
++    .ritual-builder__result-products {
++      grid-template-columns: minmax(0, 1fr);
++    }
++  }
++
+   .ritual-builder__product-card {
+     min-width: 0;
+     display: flex;
+     flex-direction: column;
+     background: transparent;
+     border: none;
+     padding: 0;
+   }
+ 
+   .ritual-builder__product-link {

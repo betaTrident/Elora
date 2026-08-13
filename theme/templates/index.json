@@ -1,0 +1,196 @@
+{
+  "sections": {
+    "hero": {
+      "type": "hero-editorial",
+      "settings": {
+        "heading": "<p>Your<br>everyday<br>beauty<br>ritual.</p>",
+        "body": "<p>Thoughtful formulas. Effortless glow.</p>",
+        "cta_label": "Shop the Collection",
+        "cta_url": "/collections/all",
+        "fallback_asset": "lp-hero.png",
+        "bg_color": "#F6EFE8"
+      }
+    },
+    "builder": {
+      "type": "soft-ritual-builder",
+      "settings": {
+        "heading": "Build your soft ritual"
+      }
+    },
+    "editorial": {
+      "type": "routine-editorial",
+      "settings": {
+        "heading": "A ritual for every moment."
+      },
+      "blocks": {
+        "step-am": {
+          "type": "step",
+          "settings": {
+            "moment": "AM \u00b7 Face",
+            "sub_heading": "Awaken. Protect. Glow.",
+            "body": "<p>Start the day with lightweight hydration and daily defence.</p>",
+            "cta_label": "Shop AM Essentials",
+            "cta_url": "/collections/face",
+            "fallback_asset": "lp-asset2.png"
+          }
+        },
+        "step-pm": {
+          "type": "step",
+          "settings": {
+            "moment": "PM \u00b7 Body",
+            "sub_heading": "Unwind. Restore. Nourish.",
+            "body": "<p>Replenish with rich textures and calming fragrances before you rest.</p>",
+            "cta_label": "Shop PM Essentials",
+            "cta_url": "/collections/body",
+            "fallback_asset": "lp-asset3.png"
+          }
+        }
+      },
+      "block_order": ["step-am", "step-pm"]
+    },
+    "ingredients": {
+      "type": "ingredient-honesty",
+      "settings": {
+        "heading": "What's in. What's never in."
+      },
+      "blocks": {
+        "in-niacinamide": {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Niacinamide"
+          }
+        },
+        "in-ha": {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Hyaluronic Acid"
+          }
+        },
+        "in-ceramides": {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Ceramides"
+          }
+        },
+        "in-squalane": {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Squalane"
+          }
+        },
+        "in-centella": {
+          "type": "ingredient",
+          "settings": {
+            "type": "in",
+            "ingredient": "Centella Asiatica"
+          }
+        },
+        "never-parabens": {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Parabens"
+          }
+        },
+        "never-sulfates": {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Sulfates (SLS/SLES)"
+          }
+        },
+        "never-phthalates": {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Phthalates"
+          }
+        },
+        "never-mineral": {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Mineral Oil"
+          }
+        },
+        "never-fragrance": {
+          "type": "ingredient",
+          "settings": {
+            "type": "never",
+            "ingredient": "Synthetic Fragrance"
+          }
+        }
+      },
+      "block_order": [
+        "in-niacinamide",
+        "in-ha",
+        "in-ceramides",
+        "in-squalane",
+        "in-centella",
+        "never-parabens",
+        "never-sulfates",
+        "never-phthalates",
+        "never-mineral",
+        "never-fragrance"
+      ]
+    },
+    "scent": {
+      "type": "scent-wardrobe",
+      "settings": {
+        "heading": "The Elora Scent Wardrobe"
+      },
+      "blocks": {
+        "scent-01": {
+          "type": "scent",
+          "settings": {
+            "number": "N\u00b001",
+            "name": "Soft Bloom",
+            "note": "Fertile Florals. Dewy & delicate.",
+            "cta_label": "Shop Now",
+            "cta_url": "/collections/soft-bloom",
+            "fallback_asset": "lp-asset4.png",
+            "bg_color": "#D6DEDD"
+          }
+        },
+        "scent-02": {
+          "type": "scent",
+          "settings": {
+            "number": "N\u00b002",
+            "name": "Warm Skin",
+            "note": "Amber. Soft. Comforting.",
+            "cta_label": "Shop Now",
+            "cta_url": "/collections/warm-skin",
+            "fallback_asset": "lp-asset5.png",
+            "bg_color": "#F0C4A5"
+          }
+        },
+        "scent-03": {
+          "type": "scent",
+          "settings": {
+            "number": "N\u00b003",
+            "name": "Bare Linen",
+            "note": "Clean. Crisp. Understated.",
+            "cta_label": "Shop Now",
+            "cta_url": "/collections/bare-linen",
+            "fallback_asset": "lp-asset6.png",
+            "bg_color": "#EAE0D0"
+          }
+        }
+      },
+      "block_order": ["scent-01", "scent-02", "scent-03"]
+    },
+    "featured": {
+      "type": "featured-collection",
+      "settings": {
+        "title": "The ritual wardrobe",
+        "collection": "skincare-essentials",
+        "products_to_show": 9
+      }
+    }
+  },
+  "order": ["hero", "builder", "editorial", "ingredients", "scent", "featured"]
+}

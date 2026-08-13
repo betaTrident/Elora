@@ -1,0 +1,1224 @@
+﻿# Task 11A review package — untracked theme/ foundation (no commits)
+
+## git status --short theme
+
+ A theme/assets/base.css  A theme/assets/brand.css  A theme/assets/theme.js  A theme/config/settings_data.json  A theme/config/settings_schema.json  A theme/layout/theme.liquid  A theme/locales/en.default.json  A theme/sections/announcement-bar.liquid  A theme/sections/featured-collection.liquid  A theme/sections/footer-group.json  A theme/sections/footer.liquid  A theme/sections/header-group.json  A theme/sections/header.liquid  A theme/sections/main-cart.liquid  A theme/sections/main-collection.liquid  A theme/sections/main-product.liquid  A theme/snippets/brand-lockup.liquid  A theme/snippets/product-card.liquid  A theme/templates/cart.json  A theme/templates/collection.json  A theme/templates/index.json  A theme/templates/product.json
+
+## git diff --stat -- theme
+
+ theme/assets/base.css                     | 469 ++++++++++++++++++++++++++++++  theme/assets/brand.css                    |  30 ++  theme/assets/theme.js                     |  23 ++  theme/config/settings_data.json           |   6 +  theme/config/settings_schema.json         |  10 +  theme/layout/theme.liquid                 |  22 ++  theme/locales/en.default.json             |  45 +++  theme/sections/announcement-bar.liquid    |  32 ++  theme/sections/featured-collection.liquid |  60 ++++  theme/sections/footer-group.json          |  11 +  theme/sections/footer.liquid              |  18 ++  theme/sections/header-group.json          |  17 ++  theme/sections/header.liquid              |  36 +++  theme/sections/main-cart.liquid           |  95 ++++++  theme/sections/main-collection.liquid     |  31 ++  theme/sections/main-product.liquid        |  82 ++++++  theme/snippets/brand-lockup.liquid        |  33 +++  theme/snippets/product-card.liquid        |  22 ++  theme/templates/cart.json                 |   9 +  theme/templates/collection.json           |   9 +  theme/templates/index.json                |  11 +  theme/templates/product.json              |   9 +  22 files changed, 1080 insertions(+)
+
+## git diff -U10 -- theme
+
+diff --git a/theme/assets/base.css b/theme/assets/base.css
+new file mode 100644
+index 0000000..769b9da
+--- /dev/null
++++ b/theme/assets/base.css
+@@ -0,0 +1,469 @@
++*,
++*::before,
++*::after {
++  box-sizing: border-box;
++}
++
++html {
++  scroll-behavior: smooth;
++}
++
++body {
++  margin: 0;
++  min-height: 100vh;
++  display: flex;
++  flex-direction: column;
++  line-height: 1.6;
++}
++
++img,
++svg {
++  max-width: 100%;
++  height: auto;
++  display: block;
++}
++
++a {
++  color: inherit;
++  text-decoration-thickness: 1px;
++  text-underline-offset: 0.2em;
++}
++
++:focus-visible {
++  outline: 2px solid var(--color-sage);
++  outline-offset: 3px;
++}
++
++.skip-link {
++  position: absolute;
++  inset-inline-start: var(--spacing-md);
++  top: var(--spacing-md);
++  z-index: 1000;
++  padding: 0.6rem 1rem;
++  background: var(--color-ink);
++  color: var(--color-porcelain);
++  text-decoration: none;
++  border-radius: var(--radius-sm);
++  transform: translateY(-160%);
++  transition: transform var(--transition-base);
++}
++
++.skip-link:focus {
++  transform: translateY(0);
++}
++
++#MainContent {
++  flex: 1;
++  width: 100%;
++}
++
++.page-width {
++  width: min(1120px, calc(100% - var(--spacing-lg)));
++  margin-inline: auto;
++}
++
++.visually-hidden {
++  position: absolute;
++  width: 1px;
++  height: 1px;
++  padding: 0;
++  margin: -1px;
++  overflow: hidden;
++  clip: rect(0, 0, 0, 0);
++  white-space: nowrap;
++  border: 0;
++}
++
++.announcement-bar {
++  background: var(--color-sand);
++  color: var(--color-ink);
++  text-align: center;
++  padding: 0.55rem var(--spacing-md);
++  font-size: 0.8125rem;
++  letter-spacing: 0.06em;
++}
++
++.announcement-bar a {
++  text-decoration: none;
++}
++
++.announcement-bar a:hover {
++  text-decoration: underline;
++}
++
++.header {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--spacing-md);
++  padding: var(--spacing-md) 0;
++  border-bottom: 1px solid var(--color-sand);
++}
++
++.header__nav ul {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--spacing-md) var(--spacing-lg);
++  list-style: none;
++  margin: 0;
++  padding: 0;
++}
++
++.header__nav a {
++  text-decoration: none;
++  font-size: 0.875rem;
++  letter-spacing: 0.04em;
++}
++
++.header__nav a[aria-current='page'] {
++  text-decoration: underline;
++}
++
++.header__cart {
++  display: inline-flex;
++  align-items: baseline;
++  gap: 0.35rem;
++  text-decoration: none;
++  font-size: 0.875rem;
++  letter-spacing: 0.04em;
++}
++
++.header__cart-count {
++  color: var(--color-sage);
++}
++
++.footer {
++  margin-top: auto;
++  padding: var(--spacing-xl) 0 var(--spacing-lg);
++  border-top: 1px solid var(--color-sand);
++}
++
++.footer__inner {
++  display: flex;
++  flex-direction: column;
++  gap: var(--spacing-md);
++  align-items: flex-start;
++}
++
++.footer__copyright {
++  margin: 0;
++  color: var(--color-muted);
++  font-size: 0.8125rem;
++}
++
++.btn {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: 0.4rem;
++  padding: 0.75rem 1.4rem;
++  border: 1px solid var(--color-ink);
++  border-radius: var(--radius-sm);
++  background: var(--color-ink);
++  color: var(--color-porcelain);
++  font-family: inherit;
++  font-size: 0.875rem;
++  letter-spacing: 0.06em;
++  text-decoration: none;
++  cursor: pointer;
++  transition: background var(--transition-base), color var(--transition-base);
++}
++
++.btn:hover:not(:disabled) {
++  background: transparent;
++  color: var(--color-ink);
++}
++
++.btn:disabled {
++  opacity: 0.55;
++  cursor: not-allowed;
++}
++
++.btn--secondary {
++  background: transparent;
++  color: var(--color-ink);
++}
++
++.btn--secondary:hover:not(:disabled) {
++  background: var(--color-ink);
++  color: var(--color-porcelain);
++}
++
++.field {
++  display: flex;
++  flex-direction: column;
++  gap: 0.35rem;
++}
++
++.field label {
++  font-size: 0.75rem;
++  letter-spacing: 0.08em;
++  text-transform: uppercase;
++  color: var(--color-muted);
++}
++
++.field input,
++.field select {
++  font: inherit;
++  padding: 0.65rem 0.75rem;
++  border: 1px solid var(--color-sand);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface);
++  color: var(--color-ink);
++}
++
++.product {
++  display: grid;
++  gap: var(--spacing-lg);
++  padding: var(--spacing-xl) 0;
++}
++
++@media (min-width: 768px) {
++  .product {
++    grid-template-columns: 1fr 1fr;
++    align-items: start;
++  }
++}
++
++.product__media {
++  background: var(--color-surface);
++  border-radius: var(--radius-md);
++  overflow: hidden;
++}
++
++.product__image {
++  width: 100%;
++  aspect-ratio: 1 / 1;
++  object-fit: cover;
++}
++
++.product__title {
++  margin: 0 0 var(--spacing-sm);
++  font-size: clamp(1.75rem, 3vw, 2.5rem);
++  line-height: 1.15;
++}
++
++.product__price {
++  display: flex;
++  gap: 0.6rem;
++  align-items: baseline;
++  margin: 0 0 var(--spacing-md);
++  font-size: 1.125rem;
++}
++
++.product__price s {
++  color: var(--color-muted);
++}
++
++.product__description {
++  color: var(--color-ink);
++}
++
++.product__form {
++  display: grid;
++  gap: var(--spacing-md);
++  margin-top: var(--spacing-lg);
++  max-width: 24rem;
++}
++
++.collection {
++  padding: var(--spacing-xl) 0;
++}
++
++.collection__title {
++  margin: 0 0 var(--spacing-lg);
++  font-size: clamp(1.75rem, 3vw, 2.5rem);
++}
++
++.product-grid {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++  display: grid;
++  grid-template-columns: repeat(2, 1fr);
++  gap: var(--spacing-lg) var(--spacing-md);
++}
++
++@media (min-width: 900px) {
++  .product-grid {
++    grid-template-columns: repeat(4, 1fr);
++  }
++}
++
++.product-card {
++  display: flex;
++  flex-direction: column;
++  height: 100%;
++}
++
++.product-card__link {
++  display: flex;
++  flex-direction: column;
++  height: 100%;
++  text-decoration: none;
++  color: inherit;
++}
++
++.product-card__image-wrap {
++  background: var(--color-surface);
++  border-radius: var(--radius-md);
++  overflow: hidden;
++  aspect-ratio: 1 / 1;
++}
++
++.product-card__image,
++.product-card__placeholder {
++  width: 100%;
++  height: 100%;
++  object-fit: cover;
++}
++
++.product-card__title {
++  margin: 0.75rem 0 0.25rem;
++  font-family: var(--font-display);
++  font-size: 1.125rem;
++  font-weight: 400;
++  line-height: 1.3;
++}
++
++.product-card__price {
++  margin: 0;
++  color: var(--color-sage);
++  font-size: 0.9375rem;
++}
++
++.collection__pagination {
++  margin-top: var(--spacing-xl);
++  text-align: center;
++}
++
++.cart {
++  padding: var(--spacing-xl) 0;
++}
++
++.cart__title {
++  margin: 0 0 var(--spacing-lg);
++  font-size: clamp(1.75rem, 3vw, 2.5rem);
++}
++
++.cart__empty {
++  font-size: 1.05rem;
++}
++
++.cart-form {
++  display: grid;
++  gap: var(--spacing-lg);
++}
++
++.cart-item {
++  display: grid;
++  grid-template-columns: 88px 1fr;
++  gap: var(--spacing-md);
++  padding-bottom: var(--spacing-lg);
++  border-bottom: 1px solid var(--color-sand);
++}
++
++@media (min-width: 700px) {
++  .cart-item {
++    grid-template-columns: 120px 1fr auto;
++    align-items: start;
++  }
++}
++
++.cart-item__image {
++  width: 100%;
++  aspect-ratio: 1 / 1;
++  object-fit: cover;
++  border-radius: var(--radius-sm);
++  background: var(--color-surface);
++}
++
++.cart-item__title {
++  margin: 0 0 0.25rem;
++  font-family: var(--font-display);
++  font-size: 1.2rem;
++}
++
++.cart-item__variant {
++  margin: 0 0 0.75rem;
++  color: var(--color-muted);
++  font-size: 0.875rem;
++}
++
++.cart-item__properties {
++  margin: 0 0 0.75rem;
++}
++
++.cart-item__property {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 0.35rem 0.6rem;
++  font-size: 0.875rem;
++}
++
++.cart-item__property dt {
++  font-weight: 500;
++}
++
++.cart-item__property dt::after {
++  content: ':';
++}
++
++.cart-item__property dd {
++  margin: 0;
++}
++
++.cart-item__actions {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--spacing-md);
++  align-items: end;
++}
++
++.cart-item__price {
++  margin: 0;
++  font-size: 1rem;
++}
++
++.cart__footer {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-end;
++  gap: var(--spacing-md);
++}
++
++.cart__subtotal {
++  margin: 0;
++  font-size: 1.125rem;
++}
++
++.cart__actions {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--spacing-sm);
++}
++
++.featured-collection {
++  padding: var(--spacing-xl) 0;
++}
++
++.featured-collection__title {
++  margin: 0 0 var(--spacing-lg);
++  font-size: clamp(1.5rem, 3vw, 2.25rem);
++}
++
++.featured-collection__empty,
++.collection__empty {
++  color: var(--color-muted);
++}
++
++@media (max-width: 699px) {
++  .header {
++    flex-wrap: wrap;
++  }
++
++  .header__nav {
++    order: 3;
++    width: 100%;
++  }
++}
+diff --git a/theme/assets/brand.css b/theme/assets/brand.css
+new file mode 100644
+index 0000000..ed8a5dd
+--- /dev/null
++++ b/theme/assets/brand.css
+@@ -0,0 +1,30 @@
++:root {
++  --color-porcelain: #F6EFE8;
++  --color-sand: #E8CFC4;
++  --color-ink: #2A2420;
++  --color-sage: #6F7F72;
++  --color-surface: #FFFFFF;
++  --color-muted: #8A7E78;
++
++  --font-display: 'DM Serif Display', Georgia, serif;
++  --font-body: 'DM Sans', -apple-system, sans-serif;
++
++  --spacing-sm: 8px;
++  --spacing-md: 16px;
++  --spacing-lg: 32px;
++  --spacing-xl: 64px;
++
++  --radius-sm: 4px;
++  --radius-md: 12px;
++
++  --transition-base: 200ms ease;
++}
++
++body {
++  font-family: var(--font-body);
++  color: var(--color-ink);
++  background-color: var(--color-porcelain);
++  -webkit-font-smoothing: antialiased;
++}
++
++h1, h2, h3 { font-family: var(--font-display); font-weight: 400; }
+diff --git a/theme/assets/theme.js b/theme/assets/theme.js
+new file mode 100644
+index 0000000..56a9178
+--- /dev/null
++++ b/theme/assets/theme.js
+@@ -0,0 +1,23 @@
++(function () {
++  var skipLink = document.querySelector('.skip-link');
++  if (skipLink) {
++    skipLink.addEventListener('click', function (event) {
++      var href = skipLink.getAttribute('href');
++      if (!href || href.charAt(0) !== '#') return;
++      var target = document.querySelector(href);
++      if (!target) return;
++      event.preventDefault();
++      target.setAttribute('tabindex', '-1');
++      target.focus();
++    });
++  }
++
++  var cartForm = document.querySelector('.cart-form');
++  if (!cartForm) return;
++
++  cartForm.querySelectorAll('[data-cart-quantity]').forEach(function (input) {
++    input.addEventListener('change', function () {
++      cartForm.submit();
++    });
++  });
++})();
+diff --git a/theme/config/settings_data.json b/theme/config/settings_data.json
+new file mode 100644
+index 0000000..5ae7967
+--- /dev/null
++++ b/theme/config/settings_data.json
+@@ -0,0 +1,6 @@
++{
++  "current": {},
++  "presets": {
++    "Elora": {}
++  }
++}
+diff --git a/theme/config/settings_schema.json b/theme/config/settings_schema.json
+new file mode 100644
+index 0000000..aad2ed8
+--- /dev/null
++++ b/theme/config/settings_schema.json
+@@ -0,0 +1,10 @@
++[
++  {
++    "name": "theme_info",
++    "theme_name": "Elora",
++    "theme_author": "Elora",
++    "theme_version": "1.0.0",
++    "theme_documentation_url": "https://help.shopify.com/manual/online-store/themes",
++    "theme_support_url": "https://help.shopify.com/"
++  }
++]
+diff --git a/theme/layout/theme.liquid b/theme/layout/theme.liquid
+new file mode 100644
+index 0000000..07d440b
+--- /dev/null
++++ b/theme/layout/theme.liquid
+@@ -0,0 +1,22 @@
++<!DOCTYPE html>
++<html lang="{{ request.locale.iso_code }}">
++  <head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>{{ page_title }} | {{ shop.name }}</title>
++    {{ content_for_header }}
++    <link rel="preconnect" href="https://fonts.googleapis.com">
++    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
++    {{ 'brand.css' | asset_url | stylesheet_tag }}
++    {{ 'base.css' | asset_url | stylesheet_tag }}
++  </head>
++  <body>
++    <a class="skip-link" href="#MainContent">{{ 'accessibility.skip_to_content' | t }}</a>
++    {% sections 'header-group' %}
++    <main id="MainContent" role="main" tabindex="-1">
++      {{ content_for_layout }}
++    </main>
++    {% sections 'footer-group' %}
++    <script src="{{ 'theme.js' | asset_url }}" defer></script>
++  </body>
++</html>
+diff --git a/theme/locales/en.default.json b/theme/locales/en.default.json
+new file mode 100644
+index 0000000..01e8d5c
+--- /dev/null
++++ b/theme/locales/en.default.json
+@@ -0,0 +1,45 @@
++{
++  "general": {
++    "brand": "Elora",
++    "tagline": "Your everyday beauty ritual."
++  },
++  "header": {
++    "home": "Home",
++    "cart": "Bag",
++    "menu": "Menu"
++  },
++  "accessibility": {
++    "skip_to_content": "Skip to content"
++  },
++  "cart": {
++    "empty": "Your bag is empty ΓÇö start your everyday ritual.",
++    "ritual_property": "Elora Ritual",
++    "title": "Your bag",
++    "checkout": "Checkout",
++    "quantity": "Quantity",
++    "remove": "Remove",
++    "subtotal": "Subtotal",
++    "update": "Update",
++    "product": "Product",
++    "price": "Price",
++    "total": "Total"
++  },
++  "products": {
++    "add_to_cart": "Add to bag",
++    "quantity": "Quantity",
++    "sold_out": "Sold out",
++    "variant": "Shade",
++    "price": "Price"
++  },
++  "collections": {
++    "empty": "Nothing here yet ΓÇö explore another ritual.",
++    "title": "Collection"
++  },
++  "featured_collection": {
++    "empty": "Choose a collection to feature.",
++    "view_all": "View {{ title }}"
++  },
++  "footer": {
++    "copyright": "┬⌐ {{ year }} {{ shop_name }}"
++  }
++}
+diff --git a/theme/sections/announcement-bar.liquid b/theme/sections/announcement-bar.liquid
+new file mode 100644
+index 0000000..aa0fa06
+--- /dev/null
++++ b/theme/sections/announcement-bar.liquid
+@@ -0,0 +1,32 @@
++{%- if section.settings.text != blank -%}
++  <div class="announcement-bar">
++    {%- if section.settings.link != blank -%}
++      <a href="{{ section.settings.link }}">{{ section.settings.text | escape }}</a>
++    {%- else -%}
++      <p>{{ section.settings.text | escape }}</p>
++    {%- endif -%}
++  </div>
++{%- endif -%}
++
++{% schema %}
++{
++  "name": "Announcement bar",
++  "class": "section-announcement",
++  "enabled_on": {
++    "groups": ["header"]
++  },
++  "settings": [
++    {
++      "type": "text",
++      "id": "text",
++      "label": "Text",
++      "default": "Your everyday beauty ritual."
++    },
++    {
++      "type": "url",
++      "id": "link",
++      "label": "Link"
++    }
++  ]
++}
++{% endschema %}
+diff --git a/theme/sections/featured-collection.liquid b/theme/sections/featured-collection.liquid
+new file mode 100644
+index 0000000..1411e7c
+--- /dev/null
++++ b/theme/sections/featured-collection.liquid
+@@ -0,0 +1,60 @@
++<section class="featured-collection page-width">
++  {%- if section.settings.title != blank -%}
++    <h2 class="featured-collection__title">{{ section.settings.title | escape }}</h2>
++  {%- endif -%}
++
++  {%- assign featured = section.settings.collection -%}
++  {%- if featured != blank -%}
++    <ul class="product-grid" role="list">
++      {%- for product in featured.products limit: section.settings.products_to_show -%}
++        <li>{% render 'product-card', product: product %}</li>
++      {%- endfor -%}
++    </ul>
++    {%- if featured.url != blank -%}
++      <p>
++        <a href="{{ featured.url }}">{{ 'featured_collection.view_all' | t: title: featured.title }}</a>
++      </p>
++    {%- endif -%}
++  {%- else -%}
++    <p class="featured-collection__empty">{{ 'featured_collection.empty' | t }}</p>
++  {%- endif -%}
++</section>
++
++{% stylesheet %}
++  .featured-collection p {
++    margin-top: var(--spacing-lg);
++  }
++{% endstylesheet %}
++
++{% schema %}
++{
++  "name": "Featured collection",
++  "settings": [
++    {
++      "type": "text",
++      "id": "title",
++      "label": "Heading",
++      "default": "The ritual wardrobe"
++    },
++    {
++      "type": "collection",
++      "id": "collection",
++      "label": "Collection"
++    },
++    {
++      "type": "range",
++      "id": "products_to_show",
++      "label": "Products to show",
++      "min": 2,
++      "max": 12,
++      "step": 1,
++      "default": 8
++    }
++  ],
++  "presets": [
++    {
++      "name": "Featured collection"
++    }
++  ]
++}
++{% endschema %}
+diff --git a/theme/sections/footer-group.json b/theme/sections/footer-group.json
+new file mode 100644
+index 0000000..899bba9
+--- /dev/null
++++ b/theme/sections/footer-group.json
+@@ -0,0 +1,11 @@
++{
++  "type": "footer",
++  "name": "Footer",
++  "sections": {
++    "footer": {
++      "type": "footer",
++      "settings": {}
++    }
++  },
++  "order": ["footer"]
++}
+diff --git a/theme/sections/footer.liquid b/theme/sections/footer.liquid
+new file mode 100644
+index 0000000..8b87c71
+--- /dev/null
++++ b/theme/sections/footer.liquid
+@@ -0,0 +1,18 @@
++<footer class="footer">
++  <div class="footer__inner page-width">
++    {% render 'brand-lockup' %}
++    {%- assign year = 'now' | date: '%Y' -%}
++    <p class="footer__copyright">{{ 'footer.copyright' | t: year: year, shop_name: shop.name }}</p>
++  </div>
++</footer>
++
++{% schema %}
++{
++  "name": "Footer",
++  "class": "section-footer",
++  "enabled_on": {
++    "groups": ["footer"]
++  },
++  "settings": []
++}
++{% endschema %}
+diff --git a/theme/sections/header-group.json b/theme/sections/header-group.json
+new file mode 100644
+index 0000000..2705ac8
+--- /dev/null
++++ b/theme/sections/header-group.json
+@@ -0,0 +1,17 @@
++{
++  "type": "header",
++  "name": "Header",
++  "sections": {
++    "announcement-bar": {
++      "type": "announcement-bar",
++      "settings": {
++        "text": "Your everyday beauty ritual."
++      }
++    },
++    "header": {
++      "type": "header",
++      "settings": {}
++    }
++  },
++  "order": ["announcement-bar", "header"]
++}
+diff --git a/theme/sections/header.liquid b/theme/sections/header.liquid
+new file mode 100644
+index 0000000..2ae3fec
+--- /dev/null
++++ b/theme/sections/header.liquid
+@@ -0,0 +1,36 @@
++<header class="header page-width">
++  {% render 'brand-lockup' %}
++
++  <nav class="header__nav" aria-label="{{ 'header.menu' | t }}">
++    <ul>
++      {%- for link in linklists.main-menu.links -%}
++        <li>
++          <a
++            href="{{ link.url }}"
++            {% if link.current %}
++              aria-current="page"
++            {% endif %}
++          >
++            {{ link.title | escape }}
++          </a>
++        </li>
++      {%- endfor -%}
++    </ul>
++  </nav>
++
++  <a href="{{ routes.cart_url }}" class="header__cart">
++    <span>{{ 'header.cart' | t }}</span>
++    <span class="header__cart-count">({{ cart.item_count }})</span>
++  </a>
++</header>
++
++{% schema %}
++{
++  "name": "Header",
++  "class": "section-header",
++  "enabled_on": {
++    "groups": ["header"]
++  },
++  "settings": []
++}
++{% endschema %}
+diff --git a/theme/sections/main-cart.liquid b/theme/sections/main-cart.liquid
+new file mode 100644
+index 0000000..d2e0173
+--- /dev/null
++++ b/theme/sections/main-cart.liquid
+@@ -0,0 +1,95 @@
++<section class="cart page-width">
++  <h1 class="cart__title">{{ 'cart.title' | t }}</h1>
++
++  {%- if cart.item_count == 0 -%}
++    <p class="cart__empty">{{ 'cart.empty' | t }}</p>
++  {%- else -%}
++    {% form 'cart', cart, class: 'cart-form' %}
++      {{ form.errors | default_errors }}
++
++      <ul class="cart-items" role="list">
++        {%- for item in cart.items -%}
++          <li class="cart-item">
++            {%- if item.image -%}
++              {{ item.image | image_url: width: 240 | image_tag: loading: 'lazy', alt: item.image.alt, class: 'cart-item__image' }}
++            {%- else -%}
++              {{ 'product-1' | placeholder_svg_tag: 'cart-item__image' }}
++            {%- endif -%}
++
++            <div class="cart-item__details">
++              <h2 class="cart-item__title">
++                <a href="{{ item.url }}">{{ item.product.title | escape }}</a>
++              </h2>
++              {%- unless item.product.has_only_default_variant -%}
++                <p class="cart-item__variant">{{ item.variant.title | escape }}</p>
++              {%- endunless -%}
++
++              {%- unless item.properties == empty -%}
++                <dl class="cart-item__properties">
++                  {%- for property in item.properties -%}
++                    {%- assign property_first_char = property.first | slice: 0 -%}
++                    {%- if property_first_char != '_' -%}
++                      <div class="cart-item__property">
++                        <dt>{{ property.first | escape }}</dt>
++                        <dd>
++                          {%- if property.last contains '/uploads/' -%}
++                            <a href="{{ property.last }}">{{ property.last | split: '/' | last | escape }}</a>
++                          {%- else -%}
++                            {{ property.last | escape }}
++                          {%- endif -%}
++                        </dd>
++                      </div>
++                    {%- endif -%}
++                  {%- endfor -%}
++                </dl>
++              {%- endunless -%}
++
++              <div class="cart-item__actions">
++                <div class="field">
++                  <label for="Updates-{{ item.key }}">{{ 'cart.quantity' | t }}</label>
++                  <input
++                    type="number"
++                    id="Updates-{{ item.key }}"
++                    name="updates[{{ item.key }}]"
++                    value="{{ item.quantity }}"
++                    min="0"
++                    data-cart-quantity
++                  >
++                </div>
++                <a href="{{ item.url_to_remove }}">{{ 'cart.remove' | t }}</a>
++              </div>
++            </div>
++
++            <p class="cart-item__price">{{ item.final_line_price | money }}</p>
++          </li>
++        {%- endfor -%}
++      </ul>
++
++      <div class="cart__footer">
++        <p class="cart__subtotal">
++          {{ 'cart.subtotal' | t }}
++          {{ cart.total_price | money }}
++        </p>
++        <div class="cart__actions">
++          <button type="submit" name="update" class="btn btn--secondary">{{ 'cart.update' | t }}</button>
++          <button type="submit" name="checkout" class="btn">{{ 'cart.checkout' | t }}</button>
++        </div>
++      </div>
++    {% endform %}
++  {%- endif -%}
++</section>
++
++{% schema %}
++{
++  "name": "Cart",
++  "enabled_on": {
++    "templates": ["cart"]
++  },
++  "settings": [],
++  "presets": [
++    {
++      "name": "Cart"
++    }
++  ]
++}
++{% endschema %}
+diff --git a/theme/sections/main-collection.liquid b/theme/sections/main-collection.liquid
+new file mode 100644
+index 0000000..cf5aa5d
+--- /dev/null
++++ b/theme/sections/main-collection.liquid
+@@ -0,0 +1,31 @@
++<section class="collection page-width">
++  <h1 class="collection__title">{{ collection.title | escape }}</h1>
++
++  {% paginate collection.products by 12 %}
++    {%- if collection.products.size > 0 -%}
++      <ul class="product-grid" role="list">
++        {%- for product in collection.products -%}
++          <li>{% render 'product-card', product: product %}</li>
++        {%- endfor -%}
++      </ul>
++      <div class="collection__pagination">{{ paginate | default_pagination }}</div>
++    {%- else -%}
++      <p class="collection__empty">{{ 'collections.empty' | t }}</p>
++    {%- endif -%}
++  {% endpaginate %}
++</section>
++
++{% schema %}
++{
++  "name": "Collection",
++  "enabled_on": {
++    "templates": ["collection"]
++  },
++  "settings": [],
++  "presets": [
++    {
++      "name": "Collection"
++    }
++  ]
++}
++{% endschema %}
+diff --git a/theme/sections/main-product.liquid b/theme/sections/main-product.liquid
+new file mode 100644
+index 0000000..c3cccbc
+--- /dev/null
++++ b/theme/sections/main-product.liquid
+@@ -0,0 +1,82 @@
++<section class="product page-width">
++  <div class="product__media">
++    {%- if product.featured_image -%}
++      {{ product.featured_image | image_url: width: 1200 | image_tag: loading: 'eager', alt: product.featured_image.alt, class: 'product__image' }}
++    {%- else -%}
++      {{ 'product-1' | placeholder_svg_tag: 'product__image' }}
++    {%- endif -%}
++  </div>
++
++  <div class="product__details">
++    <h1 class="product__title">{{ product.title | escape }}</h1>
++    <p class="product__price">
++      {%- if product.compare_at_price > product.price -%}
++        <s>{{ product.compare_at_price | money }}</s>
++      {%- endif -%}
++      <span>{{ product.price | money }}</span>
++    </p>
++
++    {%- if product.description != blank -%}
++      <div class="product__description">{{ product.description }}</div>
++    {%- endif -%}
++
++    {%- if product.available -%}
++      {% form 'product', product, class: 'product__form' %}
++        {{ form.errors | default_errors }}
++
++        {%- if product.has_only_default_variant -%}
++          <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
++        {%- else -%}
++          <div class="field">
++            <label for="Variant-{{ section.id }}">{{ 'products.variant' | t }}</label>
++            <select name="id" id="Variant-{{ section.id }}">
++              {%- for variant in product.variants -%}
++                <option
++                  value="{{ variant.id }}"
++                  {% if variant.id == product.selected_or_first_available_variant.id %}
++                    selected
++                  {% endif %}
++                  {% unless variant.available %}
++                    disabled
++                  {% endunless %}
++                >
++                  {{ variant.title | escape }} ΓÇö {{ variant.price | money }}
++                </option>
++              {%- endfor -%}
++            </select>
++          </div>
++        {%- endif -%}
++
++        <div class="field">
++          <label for="Quantity-{{ section.id }}">{{ 'products.quantity' | t }}</label>
++          <input
++            type="number"
++            id="Quantity-{{ section.id }}"
++            name="quantity"
++            value="1"
++            min="1"
++          >
++        </div>
++
++        <button type="submit" class="btn">{{ 'products.add_to_cart' | t }}</button>
++      {% endform %}
++    {%- else -%}
++      <button type="button" class="btn" disabled>{{ 'products.sold_out' | t }}</button>
++    {%- endif -%}
++  </div>
++</section>
++
++{% schema %}
++{
++  "name": "Product",
++  "enabled_on": {
++    "templates": ["product"]
++  },
++  "settings": [],
++  "presets": [
++    {
++      "name": "Product"
++    }
++  ]
++}
++{% endschema %}
+diff --git a/theme/snippets/brand-lockup.liquid b/theme/snippets/brand-lockup.liquid
+new file mode 100644
+index 0000000..24fe844
+--- /dev/null
++++ b/theme/snippets/brand-lockup.liquid
+@@ -0,0 +1,33 @@
++{% doc %}
++Renders the Elora wordmark and tagline for header and footer.
++@example
++{% render 'brand-lockup' %}
++{% enddoc %}
++
++<a href="{{ routes.root_url }}" class="brand-lockup" aria-label="Elora ΓÇö Your everyday beauty ritual.">
++  <span class="brand-lockup__name">Elora</span>
++  <span class="brand-lockup__tagline">Your everyday beauty ritual.</span>
++</a>
++
++{% stylesheet %}
++  .brand-lockup {
++    display: inline-flex;
++    flex-direction: column;
++    gap: 0.15rem;
++    text-decoration: none;
++    color: var(--color-ink);
++  }
++
++  .brand-lockup__name {
++    font-family: var(--font-display);
++    font-size: 1.75rem;
++    letter-spacing: 0.04em;
++    line-height: 1.1;
++  }
++
++  .brand-lockup__tagline {
++    font-size: 0.75rem;
++    color: var(--color-muted);
++    letter-spacing: 0.06em;
++  }
++{% endstylesheet %}
+diff --git a/theme/snippets/product-card.liquid b/theme/snippets/product-card.liquid
+new file mode 100644
+index 0000000..507ed23
+--- /dev/null
++++ b/theme/snippets/product-card.liquid
+@@ -0,0 +1,22 @@
++{% doc %}
++Renders a product card with image, title, price, and link.
++@param {product} product - The product to render
++@example
++{% render 'product-card', product: product %}
++{% enddoc %}
++
++{%- if product != blank -%}
++  <article class="product-card">
++    <a href="{{ product.url }}" class="product-card__link">
++      <div class="product-card__image-wrap">
++        {%- if product.featured_image -%}
++          {{ product.featured_image | image_url: width: 800 | image_tag: loading: 'lazy', alt: product.featured_image.alt, class: 'product-card__image' }}
++        {%- else -%}
++          {{ 'product-1' | placeholder_svg_tag: 'product-card__placeholder' }}
++        {%- endif -%}
++      </div>
++      <h3 class="product-card__title">{{ product.title | escape }}</h3>
++      <p class="product-card__price">{{ product.price | money }}</p>
++    </a>
++  </article>
++{%- endif -%}
+diff --git a/theme/templates/cart.json b/theme/templates/cart.json
+new file mode 100644
+index 0000000..b39e997
+--- /dev/null
++++ b/theme/templates/cart.json
+@@ -0,0 +1,9 @@
++{
++  "sections": {
++    "main": {
++      "type": "main-cart",
++      "settings": {}
++    }
++  },
++  "order": ["main"]
++}
+diff --git a/theme/templates/collection.json b/theme/templates/collection.json
+new file mode 100644
+index 0000000..8bf3b8a
+--- /dev/null
++++ b/theme/templates/collection.json
+@@ -0,0 +1,9 @@
++{
++  "sections": {
++    "main": {
++      "type": "main-collection",
++      "settings": {}
++    }
++  },
++  "order": ["main"]
++}
+diff --git a/theme/templates/index.json b/theme/templates/index.json
+new file mode 100644
+index 0000000..f687b1f
+--- /dev/null
++++ b/theme/templates/index.json
+@@ -0,0 +1,11 @@
++{
++  "sections": {
++    "featured": {
++      "type": "featured-collection",
++      "settings": {
++        "title": "The ritual wardrobe"
++      }
++    }
++  },
++  "order": ["featured"]
++}
+diff --git a/theme/templates/product.json b/theme/templates/product.json
+new file mode 100644
+index 0000000..9cda6cf
+--- /dev/null
++++ b/theme/templates/product.json
+@@ -0,0 +1,9 @@
++{
++  "sections": {
++    "main": {
++      "type": "main-product",
++      "settings": {}
++    }
++  },
++  "order": ["main"]
++}

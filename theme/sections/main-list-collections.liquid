@@ -1,0 +1,27 @@
+<section class="utility-page page-width">
+  <header class="utility-page__header">
+    <h1 class="utility-page__title">{{ 'list_collections.title' | t }}</h1>
+    <p class="utility-page__lede">{{ 'list_collections.subline' | t }}</p>
+  </header>
+
+  <ul class="collections-index" role="list">
+    {%- for collection in collections -%}
+      {%- if collection.handle == 'frontpage' or collection.all_products_count == 0 -%}
+        {%- continue -%}
+      {%- endif -%}
+      <li>
+        <a class="collections-index__card" href="{{ collection.url }}">
+          <h2 class="collections-index__title">{{ collection.title | escape }}</h2>
+          <p class="collections-index__count">{{ 'collections.products_count' | t: count: collection.all_products_count }}</p>
+        </a>
+      </li>
+    {%- endfor -%}
+  </ul>
+</section>
+
+{% schema %}
+{
+  "name": "Collections list",
+  "settings": []
+}
+{% endschema %}

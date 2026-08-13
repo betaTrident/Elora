@@ -1,0 +1,293 @@
+{
+  "general": {
+    "brand": "Elora",
+    "tagline": "Your everyday beauty ritual."
+  },
+  "header": {
+    "home": "Home",
+    "cart": "Bag",
+    "menu": "Menu",
+    "account": "Account",
+    "search": "Search",
+    "shop_all": "Collections",
+    "face": "Face",
+    "body": "Body",
+    "sets": "Sets",
+    "scent": "Scent",
+    "ritual": "Ritual",
+    "about": "About",
+    "open_menu": "Open menu"
+  },
+  "accessibility": {
+    "skip_to_content": "Skip to content"
+  },
+  "cart": {
+    "empty": "Your bag is empty. Start your everyday ritual.",
+    "ritual_property": "Elora Ritual",
+    "title": "Your Bag",
+    "checkout": "Check out",
+    "quantity": "Quantity",
+    "remove": "Remove",
+    "subtotal": "Subtotal",
+    "update": "Update",
+    "product": "Product",
+    "price": "Price",
+    "total": "Total",
+    "your_bag": "Your Bag",
+    "continue_shopping": "Continue shopping →",
+    "start_shopping": "Continue shopping",
+    "order_summary": "Order Summary",
+    "shipping": "Shipping",
+    "shipping_at_checkout": "Calculated at checkout",
+    "estimated_tax": "Estimated Tax",
+    "tax_placeholder": "—",
+    "we_accept": "We Accept",
+    "free_shipping_remaining": "Spend {{ amount }} more to unlock free shipping.",
+    "free_shipping_unlocked": "Free ground shipping unlocked.",
+    "free_shipping_progress": "Progress toward free shipping"
+  },
+  "products": {
+    "add_to_cart": "Add to bag",
+    "add_to_ritual": "Add to ritual",
+    "quantity": "Quantity",
+    "sold_out": "Sold out",
+    "variant": "Size",
+    "price": "Price",
+    "breadcrumb": "Breadcrumb",
+    "images": "Product images",
+    "view_image": "View image {{ index }}",
+    "decrease_quantity": "Decrease quantity",
+    "increase_quantity": "Increase quantity",
+    "key_ingredients": "Key ingredients",
+    "related": "You'll love these",
+    "shop": "Shop"
+  },
+  "products_trust": {
+    "shipping": "Free shipping on orders $50+ / US orders only",
+    "returns": "Easy returns / 30-day return policy"
+  },
+  "search": {
+    "placeholder": "Search Elora",
+    "title": "Search",
+    "empty": "No matches for “{{ terms }}”. Try a product name or concern.",
+    "prompt": "Search the ritual wardrobe.",
+    "results_count": "{{ count }} results"
+  },
+  "not_found": {
+    "title": "This page has wandered off.",
+    "body": "The ritual is still here. Try search, or return home.",
+    "home": "Back home",
+    "shop": "Shop the collection"
+  },
+  "list_collections": {
+    "title": "Collections",
+    "subline": "Face, body, scent, and sets — the full wardrobe."
+  },
+  "customers": {
+    "login": "Sign in",
+    "register": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "submit_login": "Sign in",
+    "submit_register": "Create account",
+    "forgot": "Forgot password",
+    "recover": "Reset password",
+    "recover_prompt": "Enter your email and we will send a reset link.",
+    "submit_recover": "Send reset link",
+    "first_name": "First name",
+    "last_name": "Last name",
+    "account": "Account",
+    "orders": "Orders",
+    "addresses": "Addresses",
+    "logout": "Sign out",
+    "no_orders": "No orders yet.",
+    "default_address": "Default",
+    "add_address": "Add address",
+    "edit_address": "Edit address",
+    "delete_address": "Delete",
+    "order": "Order {{ name }}",
+    "reset": "Choose a new password",
+    "activate": "Activate your account",
+    "submit_reset": "Save password",
+    "submit_activate": "Activate",
+    "address": "Address",
+    "city": "City",
+    "postal": "Postal code"
+  },
+  "pages": {
+    "continue": "Continue shopping"
+  },
+  "about": {
+    "eyebrow": "The brand",
+    "heading": "A quieter kind of beauty.",
+    "lede": "Elora is a daily ritual wardrobe for face, body, and scent. Fewer notes. More intention. Formulas you will actually finish.",
+    "story_heading": "Formulas that feel like skin.",
+    "story_body": "We edit until the ritual is quiet. No extra steps for the sake of a routine. Cleanse, treat, protect, rest — the same pieces, every day, until they disappear into how you move.",
+    "value_one_title": "Minimal ingredients",
+    "value_one_body": "Short lists. Recognizable names. Nothing added to perform.",
+    "value_two_title": "Maximum intention",
+    "value_two_body": "Each formula has a job. If it does not earn its place, it does not ship.",
+    "value_three_title": "Made for every day",
+    "value_three_body": "Textures you will actually finish. A scent wardrobe that sits close to the body.",
+    "close_heading": "Start with the ritual you already have.",
+    "close_body": "Build a quiet lineup, or walk the full collection.",
+    "cta_shop": "Shop the collection",
+    "cta_ritual": "Build your ritual"
+  },
+  "collections": {
+    "empty": "Nothing here yet. Explore another ritual.",
+    "title": "Collection",
+    "shop": "Shop",
+    "all": "All",
+    "sort": "Sort",
+    "products_count": "{{ count }} products"
+  },
+  "featured_collection": {
+    "empty": "Choose a collection to feature.",
+    "view_all": "View {{ title }}"
+  },
+  "lineup": {
+    "nourishing_cleanser": {
+      "title": "Nourishing Cleanser",
+      "price": "$32.00"
+    },
+    "daily_hydration_gel": {
+      "title": "Daily Hydration Gel",
+      "price": "$48.00"
+    },
+    "glow_drops_serum": {
+      "title": "Glow Drops Serum",
+      "price": "$52.00"
+    },
+    "airy_sun_fluid_spf_50": {
+      "title": "Airy Sun Fluid SPF 50",
+      "price": "$36.00"
+    },
+    "restorative_night_cream": {
+      "title": "Restorative Night Cream",
+      "price": "$58.00"
+    },
+    "balancing_toner": {
+      "title": "Balancing Toner",
+      "price": "$34.00"
+    },
+    "body_lotion": {
+      "title": "Body Lotion",
+      "price": "$36.00"
+    },
+    "body_oil": {
+      "title": "Body Oil",
+      "price": "$42.00"
+    },
+    "eau_de_parfum": {
+      "title": "Eau de Parfum",
+      "price": "$72.00"
+    },
+    "soft_bloom": {
+      "title": "Soft Bloom",
+      "price": "$68.00"
+    },
+    "warm_skin": {
+      "title": "Warm Skin",
+      "price": "$68.00"
+    },
+    "bare_linen": {
+      "title": "Bare Linen",
+      "price": "$68.00"
+    }
+  },
+  "footer": {
+    "copyright": "© {{ year }} {{ shop_name }}",
+    "navigation": "Footer navigation",
+    "all_collections": "All Collections",
+    "new_arrivals": "New Arrivals",
+    "best_sellers": "Best Sellers",
+    "gift_sets": "Gift Sets",
+    "about": "About Elora",
+    "ingredients": "Our Ingredients",
+    "sustainability": "Sustainability",
+    "contact": "Contact Us",
+    "faq": "FAQ",
+    "shipping": "Shipping & Returns",
+    "track_order": "Track Order"
+  },
+  "ingredient_honesty": {
+    "in": "What's in.",
+    "never": "What's never in."
+  },
+  "ingredients": {
+    "chamomile_name": "Chamomile",
+    "chamomile_copy": "Soothes tightness so the rest of the ritual can land.",
+    "oat_name": "Oat Extract",
+    "oat_copy": "Cleanses without stripping the barrier.",
+    "glycerin_name": "Glycerin",
+    "glycerin_copy": "Draws water to the surface for lasting softness.",
+    "hyaluronic_name": "Hyaluronic Acid",
+    "hyaluronic_copy": "Attracts and locks in moisture for plump, supple skin.",
+    "aloe_name": "Aloe Vera",
+    "aloe_copy": "Soothes and calms while providing lightweight hydration.",
+    "green_tea_name": "Green Tea Extract",
+    "green_tea_copy": "Antioxidant-rich to help protect and revitalize the skin.",
+    "niacinamide_name": "Niacinamide",
+    "niacinamide_copy": "Helps even tone and support a clearer-looking complexion.",
+    "kakadu_name": "Kakadu Plum",
+    "kakadu_copy": "A vitamin C-rich fruit for a quiet, even glow.",
+    "spf_name": "Broad Spectrum Filters",
+    "spf_copy": "Daily UVA + UVB defence in a weightless fluid.",
+    "bakuchiol_name": "Bakuchiol",
+    "bakuchiol_copy": "A plant retinol alternative for overnight renewal.",
+    "squalane_name": "Squalane",
+    "squalane_copy": "Mimics skin lipids to restore a comfortable barrier.",
+    "ceramide_name": "Ceramide NP",
+    "ceramide_copy": "Helps seal moisture while you sleep.",
+    "witch_hazel_name": "Witch Hazel",
+    "witch_hazel_copy": "Clarifies without a tight, stripped finish.",
+    "panthenol_name": "Panthenol",
+    "panthenol_copy": "Softens and supports the skin after cleanse.",
+    "shea_name": "Shea Butter",
+    "shea_copy": "Cushioned moisture for after the shower.",
+    "jojoba_name": "Jojoba",
+    "jojoba_copy": "A fast-absorbing oil that feels like skin.",
+    "camellia_name": "Camellia Oil",
+    "camellia_copy": "A light seal with a warm, quiet finish.",
+    "vitamin_e_name": "Vitamin E",
+    "vitamin_e_copy": "Helps protect the oils in the formula and on skin.",
+    "florals_name": "Warm Florals",
+    "florals_copy": "A dewy bloom that sits close to the skin.",
+    "woods_name": "Soft Woods",
+    "woods_copy": "A quiet base of cedar and warmth.",
+    "musk_name": "Soft Musk",
+    "musk_copy": "The lingering close of the ritual.",
+    "bloom_name": "Dewy Bloom",
+    "bloom_copy": "A fertile floral that opens quietly on skin.",
+    "dew_name": "Morning Dew",
+    "dew_copy": "A cool, watery lift so the flower never feels heavy.",
+    "amber_name": "Soft Amber",
+    "amber_copy": "Warm resin that reads as skin, not perfume.",
+    "linen_name": "Sun-Dried Linen",
+    "linen_copy": "The scent of cloth after light and air.",
+    "air_name": "Clean Air",
+    "air_copy": "Crisp, mineral, barely there.",
+    "cotton_name": "Soft Cotton",
+    "cotton_copy": "A white, understated close for morning."
+  },
+  "builder": {
+    "step_concern": "What does your skin need?",
+    "step_moment": "When is your ritual?",
+    "step_scent": "Choose a scent mood",
+    "result_title": "Your soft ritual",
+    "add_ritual": "Add ritual to bag",
+    "restart": "Start over",
+    "choice_glow": "Glow",
+    "choice_hydrate": "Hydrate",
+    "choice_calm": "Calm",
+    "choice_barrier": "Barrier repair",
+    "choice_morning": "Morning",
+    "choice_evening": "Evening",
+    "choice_after_shower": "After shower",
+    "choice_clean": "Clean",
+    "choice_warm": "Warm",
+    "choice_floral": "Floral",
+    "choice_unscented": "Unscented"
+  }
+}

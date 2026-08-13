@@ -6,15 +6,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@shopify/app-bridge-react": "latest",
+    "@shopify/polaris": "^13",
     "react": "^19",
     "react-dom": "^19",
-    "react-router-dom": "^6",
-    "@shopify/polaris": "^13",
-    "@shopify/app-bridge-react": "latest"
+    "react-router-dom": "^6"
   },
   "devDependencies": {
-    "vite": "^5",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.4",
     "@vitejs/plugin-react": "^4",
-    "typescript": "^5"
+    "jsdom": "^29.1.1",
+    "typescript": "^5",
+    "vite": "^5",
+    "vitest": "^4.1.10"
   }
 }

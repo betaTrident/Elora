@@ -1,0 +1,10 @@
+query FindAboutPage($query: String!) {
+  pages(first: 5, query: $query) {
+    nodes {
+      id
+      handle
+      title
+      templateSuffix
+    }
+  }
+}

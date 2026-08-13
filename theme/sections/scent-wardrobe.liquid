@@ -1,0 +1,357 @@
+<section class="scent-wardrobe">
+  <div class="scent-wardrobe__inner page-width">
+    {%- if section.settings.heading != blank -%}
+      <h2 class="scent-wardrobe__heading reveal">{{ section.settings.heading | escape }}</h2>
+    {%- endif -%}
+    <ul class="scent-wardrobe__grid" role="list">
+      {%- for block in section.blocks -%}
+        <li
+          class="scent-wardrobe__item reveal reveal-delay-{{ forloop.index }}"
+          {% if block.settings.bg_color != blank %}
+            style="background-color: {{ block.settings.bg_color }};"
+          {% endif %}
+          {{ block.shopify_attributes }}
+        >
+          {%- if block.settings.image != blank or block.settings.fallback_asset != blank -%}
+            <div class="scent-wardrobe__img-wrap">
+              {%- if block.settings.image != blank -%}
+                {{ block.settings.image | image_url: width: 800 | image_tag: class: 'scent-wardrobe__img', loading: 'lazy', alt: block.settings.image.alt }}
+              {%- else -%}
+                <img
+                  src="{{ block.settings.fallback_asset | asset_url }}"
+                  class="scent-wardrobe__img"
+                  loading="lazy"
+                  alt=""
+                >
+              {%- endif -%}
+            </div>
+          {%- endif -%}
+          <div class="scent-wardrobe__content">
+            {%- if block.settings.number != blank -%}
+              <span class="scent-wardrobe__number">{{ block.settings.number | escape }}</span>
+            {%- endif -%}
+            {%- if block.settings.name != blank -%}
+              <h3 class="scent-wardrobe__name">{{ block.settings.name | escape }}</h3>
+            {%- endif -%}
+            {%- if block.settings.note != blank -%}
+              <p class="scent-wardrobe__note">{{ block.settings.note | escape }}</p>
+            {%- endif -%}
+            {%- if block.settings.cta_label != blank -%}
+              <a
+                href="{{ block.settings.cta_url | default: '#' }}"
+                class="scent-wardrobe__cta"
+              >{{ block.settings.cta_label | escape }}</a>
+            {%- endif -%}
+          </div>
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+
+{% stylesheet %}
+  .scent-wardrobe {
+    padding: var(--spacing-section) 0;
+    background: var(--color-porcelain);
+  }
+
+  .scent-wardrobe__heading {
+    margin: 0 0 var(--spacing-xl);
+    font-size: clamp(1.6rem, 3.2vw, 2.5rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    text-align: center;
+  }
+
+  .scent-wardrobe__grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-md);
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 600px) {
+    .scent-wardrobe__grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .scent-wardrobe__grid:has(> :nth-child(3):last-child) .scent-wardrobe__item:first-child {
+      grid-column: span 2;
+      min-height: 22rem;
+    }
+  }
+
+  @media (min-width: 900px) {
+    .scent-wardrobe__grid {
+      grid-template-columns: 1.5fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+    }
+
+    .scent-wardrobe__item:first-child {
+      grid-row: span 2;
+    }
+
+    .scent-wardrobe__grid:has(> :nth-child(4)) .scent-wardrobe__item:last-child {
+      grid-column: span 2;
+    }
+
+    .scent-wardrobe__grid:has(> :nth-child(3):last-child) {
+      grid-template-columns: 1.45fr 1fr;
+      min-height: 36rem;
+    }
+
+    .scent-wardrobe__grid:has(> :nth-child(3):last-child) .scent-wardrobe__item:first-child {
+      grid-column: auto;
+      min-height: 32rem;
+    }
+  }
+
+  .scent-wardrobe__item {
+    position: relative;
+    overflow: hidden;
+    padding: var(--spacing-xl) var(--spacing-lg);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    min-height: 14rem;
+    transition: box-shadow var(--transition-base), transform var(--transition-slow);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .scent-wardrobe__item:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+    }
+  }
+
+  @media (min-width: 900px) {
+    .scent-wardrobe__item:first-child {
+      min-height: 20rem;
+    }
+
+    .scent-wardrobe__grid:has(> :nth-child(3):last-child) .scent-wardrobe__item:nth-child(n+2) {
+      justify-content: flex-start;
+      min-height: 16rem;
+    }
+  }
+
+  .scent-wardrobe__item:first-child  { background: #D6DEDD; }
+  .scent-wardrobe__item:nth-child(2) { background: #F0C4A5; }
+  .scent-wardrobe__item:nth-child(3) { background: #EAE0D0; }
+  .scent-wardrobe__item:nth-child(4) { background: var(--color-sand); }
+
+  .scent-wardrobe__img-wrap {
+    position: absolute;
+    bottom: 0;
+    right: -5%;
+    height: 90%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .scent-wardrobe__img {
+    height: 100%;
+    width: auto;
+    max-width: none;
+    object-fit: contain;
+    display: block;
+  }
+
+  .scent-wardrobe__item:first-child .scent-wardrobe__img-wrap {
+    width: 58%;
+    height: 88%;
+    right: -8%;
+    bottom: -4%;
+  }
+
+  .scent-wardrobe__item:first-child .scent-wardrobe__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 42%;
+  }
+
+  .scent-wardrobe__item:nth-child(n+2) .scent-wardrobe__img-wrap {
+    top: 0;
+    right: -8%;
+    bottom: -10%;
+    height: auto;
+    width: 52%;
+  }
+
+  .scent-wardrobe__item:nth-child(n+2) .scent-wardrobe__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 70% center;
+  }
+
+  .scent-wardrobe__content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-width: 58%;
+  }
+
+  .scent-wardrobe__number {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 0.875rem;
+    color: var(--color-muted);
+    letter-spacing: 0.01em;
+    margin-bottom: 0.1rem;
+  }
+
+  .scent-wardrobe__name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .scent-wardrobe__note {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    max-width: 28ch;
+  }
+
+  .scent-wardrobe__cta {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    letter-spacing: 0.04em;
+    color: var(--color-ink);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+
+  .scent-wardrobe__cta::after {
+    content: ' \2192';
+  }
+
+  .scent-wardrobe__cta:hover {
+    color: var(--color-sage);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Scent wardrobe",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "The Elora Scent Wardrobe"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "scent",
+      "name": "Scent",
+      "settings": [
+        {
+          "type": "text",
+          "id": "number",
+          "label": "Number (e.g. N\u00b001)",
+          "placeholder": "N\u00b001"
+        },
+        {
+          "type": "text",
+          "id": "name",
+          "label": "Name"
+        },
+        {
+          "type": "text",
+          "id": "note",
+          "label": "Tagline"
+        },
+        {
+          "type": "text",
+          "id": "cta_label",
+          "label": "CTA label",
+          "placeholder": "Shop Now"
+        },
+        {
+          "type": "url",
+          "id": "cta_url",
+          "label": "CTA link"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Product image"
+        },
+        {
+          "type": "text",
+          "id": "fallback_asset",
+          "label": "Fallback asset filename",
+          "info": "Theme asset filename, e.g. lp-asset4.png"
+        },
+        {
+          "type": "color",
+          "id": "bg_color",
+          "label": "Card background"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Scent wardrobe",
+      "blocks": [
+        {
+          "type": "scent",
+          "settings": {
+            "number": "N\u00b001",
+            "name": "Soft Bloom",
+            "note": "Sand, Soft, Comforting",
+            "cta_label": "Shop Now",
+            "bg_color": "#D6DEDD"
+          }
+        },
+        {
+          "type": "scent",
+          "settings": {
+            "number": "N\u00b002",
+            "name": "Warm Skin",
+            "note": "Amber, Skin, Grounding",
+            "cta_label": "Shop Now",
+            "bg_color": "#F0C4A5"
+          }
+        },
+        {
+          "type": "scent",
+          "settings": {
+            "number": "N\u00b003",
+            "name": "Bare Linen",
+            "note": "Clean, Light, Airy",
+            "cta_label": "Shop Now",
+            "bg_color": "#EAE0D0"
+          }
+        },
+        {
+          "type": "scent",
+          "settings": {
+            "number": "N\u00b004",
+            "name": "Night Ritual",
+            "note": "Deep, Quiet, Settling",
+            "cta_label": "Shop Now"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

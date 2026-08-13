@@ -1,0 +1,11 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-about",
+      "settings": {
+        "fallback_asset": "lp-asset1.png"
+      }
+    }
+  },
+  "order": ["main"]
+}

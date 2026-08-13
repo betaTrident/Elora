@@ -1,0 +1,524 @@
+﻿# Review package: HEAD..WORKING_TREE (Phase 5 re-review after fixes)
+
+## Commits
+(none)
+
+## Files changed
+
+ app/web/package.json   | 15 +++++++----
+ app/web/src/routes.tsx | 67 ++++++++++++++++++++------------------------------
+ 2 files changed, 36 insertions(+), 46 deletions(-)
+ M app/web/package.json
+ M app/web/src/routes.tsx
+?? app/web/src/components/
+?? app/web/src/pages/
+?? app/web/src/types/
+?? app/web/src/utils/
+?? app/web/vitest.config.ts
+
+## Diff
+
+diff --git a/app/web/package.json b/app/web/package.json
+index 7876268..c6ee11e 100644
+--- a/app/web/package.json
++++ b/app/web/package.json
+@@ -1,20 +1,25 @@
+ {
+   "name": "ritualscore-web",
+   "scripts": {
+     "dev": "vite",
+     "build": "tsc && vite build",
+     "preview": "vite preview"
+   },
+   "dependencies": {
++    "@shopify/app-bridge-react": "latest",
++    "@shopify/polaris": "^13",
+     "react": "^19",
+     "react-dom": "^19",
+-    "react-router-dom": "^6",
+-    "@shopify/polaris": "^13",
+-    "@shopify/app-bridge-react": "latest"
++    "react-router-dom": "^6"
+   },
+   "devDependencies": {
+-    "vite": "^5",
++    "@testing-library/jest-dom": "^7.0.1",
++    "@testing-library/react": "^16.3.2",
++    "@testing-library/user-event": "^14.6.4",
+     "@vitejs/plugin-react": "^4",
+-    "typescript": "^5"
++    "jsdom": "^29.1.1",
++    "typescript": "^5",
++    "vite": "^5",
++    "vitest": "^4.1.10"
+   }
+ }
+diff --git a/app/web/src/routes.tsx b/app/web/src/routes.tsx
+index 3dbcb55..bed0d37 100644
+--- a/app/web/src/routes.tsx
++++ b/app/web/src/routes.tsx
+@@ -1,46 +1,31 @@
+-import { useEffect, useState } from 'react'
+-import { Routes, Route } from 'react-router-dom'
+-import { Banner, Page, Text } from '@shopify/polaris'
+-import { api } from './services/api'
+-
+-function HomePage() {
+-  const [shop, setShop] = useState<string | null>(null)
+-  const [error, setError] = useState<string | null>(null)
+-
+-  useEffect(() => {
+-    let cancelled = false
+-    api
+-      .get<{ shop: string }>('/api/ping')
+-      .then((data) => {
+-        if (!cancelled) setShop(data.shop)
+-      })
+-      .catch((err: unknown) => {
+-        if (!cancelled) {
+-          setError(err instanceof Error ? err.message : 'Ping failed')
+-        }
+-      })
+-    return () => {
+-      cancelled = true
+-    }
+-  }, [])
+-
+-  return (
+-    <Page title="RitualScore">
+-      {error ? (
+-        <Banner tone="critical">{error}</Banner>
+-      ) : (
+-        <Text as="p" variant="bodyMd">
+-          {shop ? `Connected to ${shop}` : 'ConnectingΓÇª'}
+-        </Text>
+-      )}
+-    </Page>
+-  )
+-}
++import { Routes, Route, Navigate } from 'react-router-dom'
++import { NavMenu } from '@shopify/app-bridge-react'
++import { Dashboard } from './pages/Dashboard'
++import { Rituals } from './pages/Rituals'
++import { RitualForm } from './pages/Rituals/RitualForm'
++import { Activity } from './pages/Activity'
++import { Settings } from './pages/Settings'
+ 
+ export function AppRoutes() {
+   return (
+-    <Routes>
+-      <Route path="*" element={<HomePage />} />
+-    </Routes>
++    <>
++      <NavMenu>
++        <a href="/" rel="home">
++          Dashboard
++        </a>
++        <a href="/rituals">Routines</a>
++        <a href="/activity">Activity</a>
++        <a href="/settings">Settings</a>
++      </NavMenu>
++      <Routes>
++        <Route path="/" element={<Dashboard />} />
++        <Route path="/rituals" element={<Rituals />} />
++        <Route path="/rituals/new" element={<RitualForm />} />
++        <Route path="/rituals/:id/edit" element={<RitualForm />} />
++        <Route path="/activity" element={<Activity />} />
++        <Route path="/settings" element={<Settings />} />
++        <Route path="*" element={<Navigate to="/" replace />} />
++      </Routes>
++    </>
+   )
+ }
+
+--- /dev/null
++++ b/app/web/src/components/EmptyState.tsx
+
+diff --git a/app/web/src/components/EmptyState.tsx b/app/web/src/components/EmptyState.tsx
+new file mode 100644
+index 0000000..35d6a32
+--- /dev/null
++++ b/app/web/src/components/EmptyState.tsx
+@@ -0,0 +1,29 @@
++import { EmptyState as PolarisEmptyState } from '@shopify/polaris'
++
++const DEFAULT_IMAGE =
++  'https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png'
++
++interface EmptyStateAction {
++  content: string
++  url?: string
++  onAction?: () => void
++}
++
++interface EmptyStateProps {
++  heading: string
++  description: string
++  action?: EmptyStateAction
++  image?: string
++}
++
++export function EmptyState({ heading, description, action, image }: EmptyStateProps) {
++  return (
++    <PolarisEmptyState
++      heading={heading}
++      image={image ?? DEFAULT_IMAGE}
++      action={action}
++    >
++      <p>{description}</p>
++    </PolarisEmptyState>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/components/PageLayout.tsx
+
+diff --git a/app/web/src/components/PageLayout.tsx b/app/web/src/components/PageLayout.tsx
+new file mode 100644
+index 0000000..345c70d
+--- /dev/null
++++ b/app/web/src/components/PageLayout.tsx
+@@ -0,0 +1,22 @@
++import { Frame, Page } from '@shopify/polaris'
++import type { ComplexAction } from '@shopify/polaris'
++import { TitleBar } from '@shopify/app-bridge-react'
++import type { ReactNode } from 'react'
++
++interface PageLayoutProps {
++  title: string
++  titleBarTitle?: string
++  children?: ReactNode
++  primaryAction?: ComplexAction
++}
++
++export function PageLayout({ title, titleBarTitle, children, primaryAction }: PageLayoutProps) {
++  return (
++    <Frame>
++      <TitleBar title={titleBarTitle ?? title} />
++      <Page title={title} primaryAction={primaryAction}>
++        {children}
++      </Page>
++    </Frame>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/components/ScoreBadge.tsx
+
+diff --git a/app/web/src/components/ScoreBadge.tsx b/app/web/src/components/ScoreBadge.tsx
+new file mode 100644
+index 0000000..c692d97
+--- /dev/null
++++ b/app/web/src/components/ScoreBadge.tsx
+@@ -0,0 +1,26 @@
++import { Badge } from '@shopify/polaris'
++import { getScoreStatus } from '../utils/scoreStatus'
++
++export type { ScoreStatus } from '../utils/scoreStatus'
++export { getScoreStatus }
++
++interface ScoreBadgeProps {
++  score: number | null
++  threshold: number
++}
++
++const STATUS_CONFIG = {
++  'not-scored': { tone: undefined, label: 'Not scored' },
++  healthy: { tone: 'success' as const, label: null },
++  'at-risk': { tone: 'attention' as const, label: null },
++  broken: { tone: 'critical' as const, label: null },
++} as const
++
++export function ScoreBadge({ score, threshold }: ScoreBadgeProps) {
++  const status = getScoreStatus(score, threshold)
++  const config = STATUS_CONFIG[status]
++  const displayText =
++    config.label !== null ? config.label : `${status === 'healthy' ? 'Healthy' : status === 'at-risk' ? 'At risk' : 'Broken'} \u00B7 ${score}`
++
++  return <Badge tone={config.tone}>{displayText}</Badge>
++}
+
+--- /dev/null
++++ b/app/web/src/components/ScoreBreakdown.tsx
+
+diff --git a/app/web/src/components/ScoreBreakdown.tsx b/app/web/src/components/ScoreBreakdown.tsx
+new file mode 100644
+index 0000000..39495f4
+--- /dev/null
++++ b/app/web/src/components/ScoreBreakdown.tsx
+@@ -0,0 +1,32 @@
++import { BlockStack, Box, Text, ProgressBar } from '@shopify/polaris'
++
++export interface BreakdownItem {
++  label: string
++  value: number
++  max: number
++  description: string
++}
++
++interface ScoreBreakdownProps {
++  breakdown: BreakdownItem[]
++}
++
++export function ScoreBreakdown({ breakdown }: ScoreBreakdownProps) {
++  return (
++    <BlockStack gap="300">
++      {breakdown.map((item) => (
++        <Box key={item.label}>
++          <BlockStack gap="100">
++            <Text as="span" variant="bodyMd">
++              {item.label} ΓÇö {item.value}/{item.max}
++            </Text>
++            <ProgressBar progress={(item.value / item.max) * 100} size="small" />
++            <Text as="p" variant="bodySm" tone="subdued">
++              {item.description}
++            </Text>
++          </BlockStack>
++        </Box>
++      ))}
++    </BlockStack>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/components/__tests__/ScoreBadge.test.ts
+
+diff --git a/app/web/src/components/__tests__/ScoreBadge.test.ts b/app/web/src/components/__tests__/ScoreBadge.test.ts
+new file mode 100644
+index 0000000..5f62912
+--- /dev/null
++++ b/app/web/src/components/__tests__/ScoreBadge.test.ts
+@@ -0,0 +1,24 @@
++import { describe, it, expect } from 'vitest'
++import { getScoreStatus } from '../../utils/scoreStatus'
++
++describe('getScoreStatus', () => {
++  it('returns not-scored for null score', () => {
++    expect(getScoreStatus(null, 70)).toBe('not-scored')
++  })
++
++  it('returns healthy when score >= threshold and >= 80', () => {
++    expect(getScoreStatus(90, 70)).toBe('healthy')
++    expect(getScoreStatus(80, 70)).toBe('healthy')
++    expect(getScoreStatus(80, 80)).toBe('healthy')
++  })
++
++  it('returns at-risk when score >= threshold but < 80', () => {
++    expect(getScoreStatus(75, 70)).toBe('at-risk')
++    expect(getScoreStatus(70, 70)).toBe('at-risk')
++  })
++
++  it('returns broken when score < threshold', () => {
++    expect(getScoreStatus(50, 70)).toBe('broken')
++    expect(getScoreStatus(69, 70)).toBe('broken')
++  })
++})
+
+--- /dev/null
++++ b/app/web/src/pages/Activity/index.tsx
+
+diff --git a/app/web/src/pages/Activity/index.tsx b/app/web/src/pages/Activity/index.tsx
+new file mode 100644
+index 0000000..080cb5c
+--- /dev/null
++++ b/app/web/src/pages/Activity/index.tsx
+@@ -0,0 +1,13 @@
++import { Text } from '@shopify/polaris'
++import { PageLayout } from '../../components/PageLayout'
++
++export function Activity() {
++  return (
++    <PageLayout title="Activity">
++      <Text as="p" variant="bodyMd">
++        A chronological log of score changes, alerts, and kit events across your
++        store.
++      </Text>
++    </PageLayout>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/index.tsx
+
+diff --git a/app/web/src/pages/Dashboard/index.tsx b/app/web/src/pages/Dashboard/index.tsx
+new file mode 100644
+index 0000000..0b03096
+--- /dev/null
++++ b/app/web/src/pages/Dashboard/index.tsx
+@@ -0,0 +1,17 @@
++import { Text } from '@shopify/polaris'
++import { PageLayout } from '../../components/PageLayout'
++
++export function Dashboard() {
++  return (
++    <PageLayout
++      title="Dashboard"
++      titleBarTitle="RitualScore"
++      primaryAction={{ content: 'Create routine', url: '/rituals/new' }}
++    >
++      <Text as="p" variant="bodyMd">
++        Overview of your store's routine health. KPIs and alerts load here once
++        you've created routines.
++      </Text>
++    </PageLayout>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Rituals/RitualForm/index.tsx
+
+diff --git a/app/web/src/pages/Rituals/RitualForm/index.tsx b/app/web/src/pages/Rituals/RitualForm/index.tsx
+new file mode 100644
+index 0000000..b2b9c75
+--- /dev/null
++++ b/app/web/src/pages/Rituals/RitualForm/index.tsx
+@@ -0,0 +1,19 @@
++import { Text } from '@shopify/polaris'
++import { useParams } from 'react-router-dom'
++import { PageLayout } from '../../../components/PageLayout'
++
++export function RitualForm() {
++  const { id } = useParams<{ id?: string }>()
++  const isEdit = Boolean(id)
++  const title = isEdit ? 'Edit routine' : 'Create routine'
++
++  return (
++    <PageLayout title={title}>
++      <Text as="p" variant="bodyMd">
++        {isEdit
++          ? "Update an existing kit's products or scoring rules."
++          : 'Define a new kit ΓÇö name, products, and scoring threshold. Changes are saved automatically.'}
++      </Text>
++    </PageLayout>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Rituals/index.tsx
+
+diff --git a/app/web/src/pages/Rituals/index.tsx b/app/web/src/pages/Rituals/index.tsx
+new file mode 100644
+index 0000000..706b2fc
+--- /dev/null
++++ b/app/web/src/pages/Rituals/index.tsx
+@@ -0,0 +1,16 @@
++import { Text } from '@shopify/polaris'
++import { PageLayout } from '../../components/PageLayout'
++
++export function Rituals() {
++  return (
++    <PageLayout
++      title="Routines"
++      primaryAction={{ content: 'Create routine', url: '/rituals/new' }}
++    >
++      <Text as="p" variant="bodyMd">
++        All active routine kits appear here. Create, edit, or archive kits from
++        this list.
++      </Text>
++    </PageLayout>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/pages/Settings/index.tsx
+
+diff --git a/app/web/src/pages/Settings/index.tsx b/app/web/src/pages/Settings/index.tsx
+new file mode 100644
+index 0000000..4287eee
+--- /dev/null
++++ b/app/web/src/pages/Settings/index.tsx
+@@ -0,0 +1,12 @@
++import { Text } from '@shopify/polaris'
++import { PageLayout } from '../../components/PageLayout'
++
++export function Settings() {
++  return (
++    <PageLayout title="Settings">
++      <Text as="p" variant="bodyMd">
++        Configure scoring thresholds and notification preferences for your store.
++      </Text>
++    </PageLayout>
++  )
++}
+
+--- /dev/null
++++ b/app/web/src/types/index.ts
+
+diff --git a/app/web/src/types/index.ts b/app/web/src/types/index.ts
+new file mode 100644
+index 0000000..9e8e405
+--- /dev/null
++++ b/app/web/src/types/index.ts
+@@ -0,0 +1,31 @@
++export interface DashboardCounts {
++  total: number
++  healthy: number
++  broken: number
++  unscored: number
++  openAlerts: number
++}
++
++export interface RitualSummary {
++  id: string
++  title: string
++  lastScore: number | null
++  scoreThreshold: number
++  lastScoredAt?: string | Date | null
++  status?: string
++}
++
++export interface ActivityLog {
++  id: string
++  summary: string
++  entityType: string
++  actorType: string
++  createdAt: string | Date
++  afterJson?: unknown
++}
++
++export interface DashboardData {
++  counts: DashboardCounts
++  worst5: RitualSummary[]
++  recentActivity: ActivityLog[]
++}
+
+--- /dev/null
++++ b/app/web/src/utils/scoreStatus.ts
+
+diff --git a/app/web/src/utils/scoreStatus.ts b/app/web/src/utils/scoreStatus.ts
+new file mode 100644
+index 0000000..45fa801
+--- /dev/null
++++ b/app/web/src/utils/scoreStatus.ts
+@@ -0,0 +1,11 @@
++export type ScoreStatus = 'not-scored' | 'healthy' | 'at-risk' | 'broken'
++
++export function getScoreStatus(
++  score: number | null,
++  threshold: number,
++): ScoreStatus {
++  if (score === null) return 'not-scored'
++  if (score >= threshold && score >= 80) return 'healthy'
++  if (score >= threshold) return 'at-risk'
++  return 'broken'
++}
+
+--- /dev/null
++++ b/app/web/vitest.config.ts
+
+diff --git a/app/web/vitest.config.ts b/app/web/vitest.config.ts
+new file mode 100644
+index 0000000..3140c15
+--- /dev/null
++++ b/app/web/vitest.config.ts
+@@ -0,0 +1,10 @@
++import { defineConfig } from 'vitest/config'
++import react from '@vitejs/plugin-react'
++
++export default defineConfig({
++  plugins: [react()],
++  test: {
++    environment: 'jsdom',
++    globals: false,
++  },
++})

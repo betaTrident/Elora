@@ -1,0 +1,408 @@
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
+import request from 'supertest'
+import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
+import type { Express } from 'express'
+import * as ritualsService from '../services/rituals'
+import * as activityService from '../services/activity'
+import * as alertsService from '../services/alerts'
+import * as settingsService from '../services/settings'
+import * as shopsService from '../services/shops'
+
+const TEST_API_KEY = 'test-api-key'
+const TEST_SECRET = 'test-secret'
+
+const mockLimit = vi.fn()
+const mockWhere = vi.fn(() => ({ limit: mockLimit }))
+const mockFrom = vi.fn(() => ({ where: mockWhere }))
+const mockSelect = vi.fn(() => ({ from: mockFrom }))
+
+vi.mock('../db/client', () => ({
+  db: {
+    select: (...args: unknown[]) => mockSelect(...args),
+    insert: vi.fn(() => ({
+      values: vi.fn(() => ({
+        onDuplicateKeyUpdate: vi.fn().mockResolvedValue(undefined),
+      })),
+    })),
+  },
+}))
+
+vi.mock('../services/dashboard', () => ({
+  getDashboardData: vi.fn(async () => ({
+    counts: { total: 0, healthy: 0, broken: 0, unscored: 0, openAlerts: 0 },
+    worst5: [],
+    recentActivity: [],
+  })),
+}))
+
+beforeAll(() => {
+  process.env.VITEST = 'true'
+  process.env.SHOPIFY_API_KEY = TEST_API_KEY
+  process.env.SHOPIFY_API_SECRET = TEST_SECRET
+  process.env.DATABASE_URL = 'mysql://test:test@localhost:3306/test'
+  process.env.SHOPIFY_APP_URL = 'https://test.example.com'
+  process.env.PORT = '3000'
+})
+
+let app: Express
+
+function signToken(): string {
+  return jwt.sign(
+    {
+      aud: TEST_API_KEY,
+      dest: 'https://test-shop.myshopify.com',
+      sub: 'user-123',
+    },
+    TEST_SECRET,
+    { algorithm: 'HS256' },
+  )
+}
+
+function authRequest(method: 'get' | 'post' | 'put', path: string) {
+  mockLimit.mockResolvedValueOnce([{ id: 'shop-id-1', uninstalledAt: null }])
+  const token = signToken()
+  return request(app)[method](path).set('Authorization', `Bearer ${token}`)
+}
+
+const validRitualBody = {
+  title: 'Morning Ritual',
+  components: [
+    {
+      shopifyProductId: 'gid://shopify/Product/123',
+      role: 'cleanse' as const,
+      quantity: 1,
+    },
+  ],
+}
+
+beforeAll(async () => {
+  const mod = await import('../index')
+  app = mod.app
+})
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockSelect.mockReturnValue({ from: mockFrom })
+  mockFrom.mockReturnValue({ where: mockWhere })
+  mockWhere.mockReturnValue({ limit: mockLimit })
+})
+
+describe('requireAuth on API routes', () => {
+  const protectedRoutes: Array<{ method: 'get' | 'post' | 'put'; path: string }> = [
+    { method: 'get', path: '/api/dashboard' },
+    { method: 'get', path: '/api/rituals' },
+    { method: 'post', path: '/api/rituals' },
+    { method: 'get', path: '/api/rituals/mock-id' },
+    { method: 'put', path: '/api/rituals/mock-id' },
+    { method: 'post', path: '/api/rituals/mock-id/archive' },
+    { method: 'post', path: '/api/rituals/mock-id/recalculate' },
+    { method: 'get', path: '/api/scores/mock-id' },
+    { method: 'get', path: '/api/alerts' },
+    { method: 'post', path: '/api/alerts/mock-id/resolve' },
+    { method: 'get', path: '/api/activity' },
+    { method: 'get', path: '/api/settings' },
+    { method: 'put', path: '/api/settings' },
+    { method: 'post', path: '/api/scores/recalculate-all' },
+  ]
+
+  it.each(protectedRoutes)('$method $path returns 401 without token', async ({ method, path }) => {
+    const res = await request(app)[method](path)
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: 'Missing token' })
+  })
+})
+
+describe('GET /api/dashboard', () => {
+  it('requires auth and returns 401 without a token', async () => {
+    const res = await request(app).get('/api/dashboard')
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: 'Missing token' })
+  })
+
+  it('returns 200 with mock dashboard data', async () => {
+    const res = await authRequest('get', '/api/dashboard')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({
+      counts: { total: 0, healthy: 0, broken: 0, unscored: 0, openAlerts: 0 },
+      worst5: [],
+      recentActivity: [],
+    })
+  })
+
+  it('returns 200 body that includes counts', async () => {
+    const res = await authRequest('get', '/api/dashboard')
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveProperty('counts')
+    expect(res.body.counts).toEqual({
+      total: 0,
+      healthy: 0,
+      broken: 0,
+      unscored: 0,
+      openAlerts: 0,
+    })
+  })
+})
+
+describe('POST /api/rituals', () => {
+  it('returns 400 for empty body', async () => {
+    const res = await authRequest('post', '/api/rituals').send({})
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('Validation failed')
+    expect(res.body.issues).toBeDefined()
+  })
+
+  it('returns 400 for empty components array', async () => {
+    const res = await authRequest('post', '/api/rituals').send({ title: 'X', components: [] })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('Validation failed')
+    expect(res.body.issues).toBeDefined()
+  })
+
+  it('returns 400 when components field is omitted', async () => {
+    const res = await authRequest('post', '/api/rituals').send({ title: 'X' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('Validation failed')
+    expect(res.body.issues).toBeDefined()
+  })
+
+  it('returns 201 for valid body', async () => {
+    vi.spyOn(ritualsService, 'createRitual').mockResolvedValueOnce({
+      id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      score: 65,
+      breakdown: {
+        availability: 50,
+        availabilityMax: 50,
+        completeness: 7,
+        completenessMax: 20,
+        margin: 15,
+        marginMax: 30,
+        total: 65,
+        factors: [],
+      },
+      threshold: 70,
+    })
+    const res = await authRequest('post', '/api/rituals').send(validRitualBody)
+    expect(res.status).toBe(201)
+    expect(res.body).toMatchObject({
+      score: 65,
+      threshold: 70,
+    })
+    expect(res.body.id).toMatch(/^[0-9a-f-]{36}$/i)
+  })
+})
+
+describe('GET /api/rituals/:id', () => {
+  it('returns 404 when id is missing', async () => {
+    vi.spyOn(ritualsService, 'getRitual').mockRejectedValueOnce(
+      Object.assign(new Error('Not found'), { status: 404 }),
+    )
+    const res = await authRequest('get', '/api/rituals/missing')
+    expect(res.status).toBe(404)
+    expect(res.body).toEqual({ error: 'Not found' })
+  })
+})
+
+describe('PUT /api/rituals/:id', () => {
+  it('returns 404 when id is missing', async () => {
+    vi.spyOn(ritualsService, 'updateRitual').mockRejectedValueOnce(
+      Object.assign(new Error('Not found'), { status: 404 }),
+    )
+    const res = await authRequest('put', '/api/rituals/missing').send(validRitualBody)
+    expect(res.status).toBe(404)
+    expect(res.body).toEqual({ error: 'Not found' })
+  })
+
+  it('returns 404 when ritual belongs to another shop', async () => {
+    vi.spyOn(ritualsService, 'updateRitual').mockRejectedValueOnce(
+      Object.assign(new Error('Not found'), { status: 404 }),
+    )
+    const res = await authRequest('put', '/api/rituals/other-shop-ritual').send(validRitualBody)
+    expect(res.status).toBe(404)
+    expect(res.body).toEqual({ error: 'Not found' })
+  })
+})
+
+describe('GET /api/settings', () => {
+  it('returns 200 with defaultThreshold from the service', async () => {
+    vi.spyOn(settingsService, 'getSettings').mockResolvedValueOnce({ defaultThreshold: 80 })
+    const res = await authRequest('get', '/api/settings')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ defaultThreshold: 80 })
+    expect(settingsService.getSettings).toHaveBeenCalledWith('shop-id-1')
+  })
+})
+
+describe('PUT /api/settings', () => {
+  it('returns 400 when defaultThreshold is out of range', async () => {
+    const res = await authRequest('put', '/api/settings').send({ defaultThreshold: 200 })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('Validation failed')
+  })
+
+  it('returns 200 for valid defaultThreshold', async () => {
+    vi.spyOn(settingsService, 'updateSettings').mockResolvedValueOnce({ defaultThreshold: 75 })
+    const res = await authRequest('put', '/api/settings').send({ defaultThreshold: 75 })
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ defaultThreshold: 75 })
+    expect(settingsService.updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ shopId: 'shop-id-1' }),
+      75,
+    )
+  })
+})
+
+describe('POST /api/scores/recalculate-all', () => {
+  it('returns 200 with recalculated count', async () => {
+    vi.spyOn(ritualsService, 'recalculateAllRituals').mockResolvedValueOnce({ recalculated: 3 })
+    const res = await authRequest('post', '/api/scores/recalculate-all').send({})
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ recalculated: 3 })
+    expect(ritualsService.recalculateAllRituals).toHaveBeenCalledWith(
+      expect.objectContaining({ shopId: 'shop-id-1' }),
+    )
+  })
+})
+
+describe('POST /webhooks/app/uninstalled', () => {
+  it('returns 401 for invalid HMAC', async () => {
+    const body = JSON.stringify({ shop_domain: 'test.myshopify.com' })
+    const res = await request(app)
+      .post('/webhooks/app/uninstalled')
+      .set('Content-Type', 'application/json')
+      .set('X-Shopify-Hmac-Sha256', 'invalid-hmac')
+      .send(body)
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 200 for valid HMAC', async () => {
+    const softDeleteSpy = vi.spyOn(shopsService, 'softDeleteShop').mockResolvedValueOnce(undefined)
+    const body = JSON.stringify({ shop_domain: 'test.myshopify.com' })
+    const hmac = crypto.createHmac('sha256', TEST_SECRET).update(body).digest('base64')
+    const res = await request(app)
+      .post('/webhooks/app/uninstalled')
+      .set('Content-Type', 'application/json')
+      .set('X-Shopify-Hmac-Sha256', hmac)
+      .send(body)
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ ok: true })
+    expect(softDeleteSpy).toHaveBeenCalledWith('test.myshopify.com')
+  })
+
+  it('returns 200 for valid HMAC when shop is unknown', async () => {
+    vi.spyOn(shopsService, 'softDeleteShop').mockResolvedValueOnce(undefined)
+    const body = JSON.stringify({ shop_domain: 'unknown.myshopify.com' })
+    const hmac = crypto.createHmac('sha256', TEST_SECRET).update(body).digest('base64')
+    const res = await request(app)
+      .post('/webhooks/app/uninstalled')
+      .set('Content-Type', 'application/json')
+      .set('X-Shopify-Hmac-Sha256', hmac)
+      .send(body)
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ ok: true })
+    expect(shopsService.softDeleteShop).toHaveBeenCalledWith('unknown.myshopify.com')
+  })
+})
+
+describe('Content-Security-Policy', () => {
+  it('GET /health includes frame-ancestors with admin.shopify.com', async () => {
+    const res = await request(app).get('/health')
+    expect(res.status).toBe(200)
+    const csp = res.headers['content-security-policy']
+    expect(csp).toContain('frame-ancestors')
+    expect(csp).toContain('https://admin.shopify.com')
+  })
+})
+
+describe('GET /api/alerts', () => {
+  it('returns 200 array with token', async () => {
+    const rows = [
+      {
+        id: 'alert-1',
+        ritualId: 'ritual-1',
+        type: 'low_score',
+        severity: 'warning',
+        message: 'Routine score 50 is below threshold 70',
+        status: 'open',
+        createdAt: '2026-08-13T00:00:00.000Z',
+      },
+    ]
+    vi.spyOn(alertsService, 'listOpenAlerts').mockResolvedValueOnce(rows as never)
+
+    const res = await authRequest('get', '/api/alerts')
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual(rows)
+    expect(alertsService.listOpenAlerts).toHaveBeenCalledWith('shop-id-1')
+  })
+})
+
+describe('GET /api/activity', () => {
+  it('returns 200 array with token', async () => {
+    const rows = [
+      {
+        id: 'a1',
+        summary: 'Created routine "Morning Glow"',
+        action: 'ritual.created',
+        entityType: 'ritual',
+        actorType: 'merchant',
+        createdAt: '2026-08-13T00:00:00.000Z',
+      },
+    ]
+    vi.spyOn(activityService, 'listActivity').mockResolvedValueOnce(rows as never)
+
+    const res = await authRequest('get', '/api/activity')
+
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+    expect(res.body).toEqual(rows)
+    expect(activityService.listActivity).toHaveBeenCalledWith('shop-id-1', expect.any(Object))
+  })
+
+  it('returns recent logs as an array', async () => {
+    vi.spyOn(activityService, 'listActivity').mockResolvedValueOnce([])
+
+    const res = await authRequest('get', '/api/activity')
+
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+    expect(res.body).toEqual([])
+  })
+})
+
+describe('POST /api/rituals/:id/recalculate', () => {
+  it('returns 200 with score object', async () => {
+    const scoreResult = {
+      score: 65,
+      breakdown: {
+        availability: 50,
+        availabilityMax: 50,
+        completeness: 7,
+        completenessMax: 20,
+        margin: 15,
+        marginMax: 30,
+        total: 65,
+        factors: [],
+      },
+    }
+    vi.spyOn(ritualsService, 'recalculateRitual').mockResolvedValueOnce(scoreResult)
+    const res = await authRequest('post', '/api/rituals/ritual-1/recalculate').send({})
+    expect(res.status).toBe(200)
+    expect(typeof res.body.score).toBe('number')
+    expect(res.body.score).toBe(65)
+    expect(res.body.breakdown).toEqual(scoreResult.breakdown)
+    expect(ritualsService.recalculateRitual).toHaveBeenCalledWith(
+      expect.objectContaining({ shopId: 'shop-id-1' }),
+      'ritual-1',
+    )
+  })
+})
+
+describe('errorHandler', () => {
+  it('returns 500 for unhandled errors', async () => {
+    vi.spyOn(ritualsService, 'listRituals').mockRejectedValueOnce(new Error('Unexpected failure'))
+    const res = await authRequest('get', '/api/rituals')
+    expect(res.status).toBe(500)
+    expect(res.body).toEqual({ error: 'Internal server error' })
+  })
+})

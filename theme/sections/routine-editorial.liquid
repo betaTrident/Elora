@@ -1,0 +1,262 @@
+<section class="routine-editorial">
+  <div class="routine-editorial__inner page-width">
+    {%- if section.settings.heading != blank -%}
+      <p class="routine-editorial__eyebrow reveal">{{ section.settings.heading | escape }}</p>
+    {%- endif -%}
+
+    {%- for block in section.blocks -%}
+      <article class="routine-editorial__step reveal" {{ block.shopify_attributes }}>
+        <div class="routine-editorial__text">
+          {%- if block.settings.moment != blank -%}
+            <span class="routine-editorial__moment">{{ block.settings.moment | escape }}</span>
+          {%- endif -%}
+          {%- if block.settings.sub_heading != blank -%}
+            <p class="routine-editorial__sub-heading">{{ block.settings.sub_heading | escape }}</p>
+          {%- endif -%}
+          {%- if block.settings.heading != blank -%}
+            <h3 class="routine-editorial__heading">{{ block.settings.heading | escape }}</h3>
+          {%- endif -%}
+          {%- if block.settings.body != blank -%}
+            <div class="routine-editorial__body">{{ block.settings.body }}</div>
+          {%- endif -%}
+          {%- if block.settings.cta_label != blank -%}
+            <a
+              href="{{ block.settings.cta_url | default: '#' }}"
+              class="routine-editorial__cta"
+            >{{ block.settings.cta_label | escape }}</a>
+          {%- endif -%}
+          {%- if block.settings.product != blank -%}
+            {% render 'product-card', product: block.settings.product %}
+          {%- endif -%}
+        </div>
+        {%- if block.settings.image != blank or block.settings.fallback_asset != blank -%}
+          <div class="routine-editorial__image">
+            {%- if block.settings.image != blank -%}
+              {{ block.settings.image | image_url: width: 640 | image_tag: class: 'routine-editorial__img', alt: block.settings.image.alt, loading: 'lazy' }}
+            {%- else -%}
+              <img src="{{ block.settings.fallback_asset | asset_url }}" class="routine-editorial__img" loading="lazy" alt="">
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+      </article>
+    {%- endfor -%}
+  </div>
+</section>
+
+{% stylesheet %}
+  .routine-editorial {
+    padding: var(--spacing-section) 0;
+    background: var(--color-porcelain);
+  }
+
+  .routine-editorial__eyebrow {
+    margin: 0 0 var(--spacing-xl);
+    text-align: center;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.0625rem;
+    color: var(--color-ink);
+    letter-spacing: 0.01em;
+    border: none;
+  }
+
+  .routine-editorial__inner {
+    display: grid;
+    gap: 0;
+  }
+
+  .routine-editorial__step {
+    display: grid;
+    gap: var(--spacing-lg);
+    align-items: center;
+    padding: var(--spacing-xl) 0;
+    border: none;
+  }
+
+  @media (min-width: 768px) {
+    .routine-editorial__step:has(.routine-editorial__image) {
+      grid-template-columns: 1fr 1fr;
+      gap: var(--spacing-2xl);
+    }
+
+    .routine-editorial__step:nth-of-type(even) .routine-editorial__image {
+      order: -1;
+    }
+  }
+
+  .routine-editorial__moment {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(2.25rem, 4vw, 2.85rem);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+  }
+
+  .routine-editorial__sub-heading {
+    margin: 0 0 var(--spacing-md);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--color-sage);
+  }
+
+  .routine-editorial__heading {
+    margin: 0 0 var(--spacing-sm);
+    font-size: clamp(1.6rem, 3vw, 2.25rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .routine-editorial__body {
+    margin: 0 0 var(--spacing-md);
+    color: var(--color-muted);
+    max-width: 44ch;
+    line-height: 1.7;
+    font-size: 0.9375rem;
+  }
+
+  .routine-editorial__body p {
+    margin: 0;
+    max-width: 44ch;
+  }
+
+  .routine-editorial__cta {
+    display: inline-block;
+    margin-bottom: var(--spacing-md);
+    font-size: 0.875rem;
+    letter-spacing: 0.04em;
+    color: var(--color-ink);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+
+  .routine-editorial__cta::after {
+    content: ' \2192';
+  }
+
+  .routine-editorial__cta:hover {
+    color: var(--color-sage);
+  }
+
+  .routine-editorial__image {
+    overflow: hidden;
+  }
+
+  .routine-editorial__img {
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 0;
+    background: var(--color-sand);
+    box-shadow: none;
+    display: block;
+  }
+
+  .routine-editorial__text .product-card {
+    max-width: 16rem;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Routine editorial",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Eyebrow heading",
+      "default": "A ritual for every moment."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "step",
+      "name": "Step",
+      "settings": [
+        {
+          "type": "text",
+          "id": "moment",
+          "label": "Moment",
+          "placeholder": "AM - Face"
+        },
+        {
+          "type": "text",
+          "id": "sub_heading",
+          "label": "Sub-heading",
+          "placeholder": "Awaken. Protect. Glow."
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading"
+        },
+        {
+          "type": "richtext",
+          "id": "body",
+          "label": "Body"
+        },
+        {
+          "type": "text",
+          "id": "cta_label",
+          "label": "CTA label",
+          "placeholder": "Shop AM Essentials"
+        },
+        {
+          "type": "url",
+          "id": "cta_url",
+          "label": "CTA link"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "text",
+          "id": "fallback_asset",
+          "label": "Fallback asset filename",
+          "info": "Theme asset filename, e.g. lp-asset2.png"
+        },
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Featured product"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Routine editorial",
+      "blocks": [
+        {
+          "type": "step",
+          "settings": {
+            "moment": "AM - Face",
+            "sub_heading": "Awaken. Protect. Glow.",
+            "heading": "Morning light",
+            "body": "<p>A quiet start. Cleanse, then a veil of moisture before the day begins.</p>",
+            "cta_label": "Shop AM Essentials"
+          }
+        },
+        {
+          "type": "step",
+          "settings": {
+            "moment": "PM - Body",
+            "sub_heading": "Unwind. Restore. Nourish.",
+            "heading": "Skin still warm",
+            "body": "<p>Oil, mist, a lingering close scent. The body ritual.</p>",
+            "cta_label": "Shop PM Essentials"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

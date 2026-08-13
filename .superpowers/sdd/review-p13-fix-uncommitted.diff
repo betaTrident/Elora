@@ -1,0 +1,843 @@
+﻿# Review package — Phase 13 whole-phase fix
+
+Includes graphql.ts (null qty = in stock), graphql.test.ts, catalog scent:clean, README seed-first, builder collections.all fallback.
+
+diff --git a/README.md b/README.md
+index 565abb0..735c4a3 100644
+--- a/README.md
++++ b/README.md
+@@ -1 +1,16 @@
+ # Elora
++
++## 5-minute demo script
++
++Reinstall the app so Shopify grants `write_products`, then seed:
++
++`cd app/server; npm run db:seed`
++
++1. Open app in Admin ΓÇö see Dashboard with 3 sample rituals
++2. Note "AM Glow Ritual" score and breakdown
++3. In Shopify Admin ΓåÆ Products, set Glow Drops Serum inventory to 0
++4. Back in RitualScore ΓåÆ AM Glow Ritual ΓåÆ click Recalculate
++5. Score drops ΓÇö Critical alert appears: "Out of stock"
++6. Open Activity log ΓÇö see score.recalculated + alert.opened events
++7. On storefront Home, click "Build your soft ritual" ΓåÆ complete steps ΓåÆ Add ritual to bag
++8. Cart shows all 3 items with "Elora Ritual: glow ┬╖ am ┬╖ clean" property
+diff --git a/app/server/src/shopify/graphql.ts b/app/server/src/shopify/graphql.ts
+index 58dbf19..2b425b2 100644
+--- a/app/server/src/shopify/graphql.ts
++++ b/app/server/src/shopify/graphql.ts
+@@ -1,13 +1,16 @@
+ import { eq } from 'drizzle-orm'
+ import { db } from '../db/client'
+ import { shops } from '../db/schema'
+ import type { ShopContext } from './auth'
+ import type { InventoryInfo } from '../services/scoring'
++import type { EloraProduct } from '../db/elora-catalog'
++
++const API_VERSION = '2025-01'
+ 
+ const INVENTORY_QUERY = `
+   query FetchProductInventory($ids: [ID!]!) {
+     nodes(ids: $ids) {
+       ... on Product {
+         id
+         status
+         variants(first: 1) {
+@@ -17,33 +20,139 @@ const INVENTORY_QUERY = `
+             inventoryQuantity
+           }
+         }
+       }
+     }
+   }
+ `
+ 
++const PRODUCT_BY_HANDLE_QUERY = `
++  query FindProductByHandle($identifier: ProductIdentifierInput!) {
++    productByIdentifier(identifier: $identifier) {
++      id
++      variants(first: 1) {
++        nodes { id }
++      }
++    }
++  }
++`
++
++const PRODUCT_CREATE_MUTATION = `
++  mutation CreateCatalogProduct($product: ProductCreateInput!) {
++    productCreate(product: $product) {
++      product {
++        id
++        variants(first: 1) {
++          nodes { id }
++        }
++      }
++      userErrors { field message }
++    }
++  }
++`
++
++const VARIANT_PRICE_MUTATION = `
++  mutation SetVariantPrice($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
++    productVariantsBulkUpdate(productId: $productId, variants: $variants) {
++      productVariants { id }
++      userErrors { field message }
++    }
++  }
++`
++
++interface GraphQLError {
++  message: string
++  extensions?: { code?: string }
++}
++
++interface GraphQLResponse<T> {
++  data?: T
++  errors?: GraphQLError[]
++}
++
+ interface ProductNode {
+   id: string
+   status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED'
+   variants?: {
+     nodes: Array<{
+       id: string
+       price: string
+-      inventoryQuantity: number
++      inventoryQuantity: number | null
+     }>
+   }
+ }
+ 
+-interface GraphQLResponse {
+-  data?: {
+-    nodes: Array<ProductNode | null>
++/** Shopify returns null when inventory is untracked; untracked is sellable. 0 remains OOS. */
++export function availableFromInventoryQuantity(quantity: number | null | undefined): number {
++  if (quantity === null) return 1
++  return quantity ?? 0
++}
++
++export interface CatalogProductIds {
++  productId: string
++  variantId: string | null
++}
++
++export class ShopifyGraphqlAccessDeniedError extends Error {
++  constructor(message = 'write_products is required (reinstall app)') {
++    super(message)
++    this.name = 'ShopifyGraphqlAccessDeniedError'
++  }
++}
++
++function isAccessDenied(errors?: GraphQLError[]): boolean {
++  return Boolean(
++    errors?.some(
++      error => error.extensions?.code === 'ACCESS_DENIED' || /access denied/i.test(error.message),
++    ),
++  )
++}
++
++function escapeHtml(value: string): string {
++  return value
++    .replace(/&/g, '&amp;')
++    .replace(/</g, '&lt;')
++    .replace(/>/g, '&gt;')
++    .replace(/"/g, '&quot;')
++}
++
++async function shopifyGraphql<T>(
++  shopDomain: string,
++  accessToken: string,
++  query: string,
++  variables?: Record<string, unknown>,
++): Promise<GraphQLResponse<T>> {
++  const res = await fetch(`https://${shopDomain}/admin/api/${API_VERSION}/graphql.json`, {
++    method: 'POST',
++    headers: {
++      'Content-Type': 'application/json',
++      'X-Shopify-Access-Token': accessToken,
++    },
++    body: JSON.stringify({ query, variables }),
++  })
++
++  if (res.status === 401 || res.status === 403) {
++    throw new ShopifyGraphqlAccessDeniedError()
++  }
++
++  if (!res.ok) {
++    throw new Error(`GraphQL request failed: ${res.status}`)
++  }
++
++  return (await res.json()) as GraphQLResponse<T>
++}
++
++function assertGraphqlOk(errors?: GraphQLError[]): void {
++  if (isAccessDenied(errors)) {
++    throw new ShopifyGraphqlAccessDeniedError()
++  }
++  if (errors?.length) {
++    throw new Error(errors.map(error => error.message).join('; '))
+   }
+-  errors?: Array<{ message: string }>
+ }
+ 
+ export async function fetchInventory(shop: ShopContext, productIds: string[]): Promise<InventoryInfo[]> {
+   if (productIds.length === 0) {
+     return []
+   }
+ 
+   const [shopRow] = await db
+@@ -51,46 +160,110 @@ export async function fetchInventory(shop: ShopContext, productIds: string[]): P
+     .from(shops)
+     .where(eq(shops.id, shop.shopId))
+     .limit(1)
+ 
+   if (!shopRow) {
+     throw new Error(`Shop not found: ${shop.shopId}`)
+   }
+ 
+-  const res = await fetch(`https://${shop.shopDomain}/admin/api/2025-01/graphql.json`, {
+-    method: 'POST',
+-    headers: {
+-      'Content-Type': 'application/json',
+-      'X-Shopify-Access-Token': shopRow.accessToken,
+-    },
+-    body: JSON.stringify({
+-      query: INVENTORY_QUERY,
+-      variables: { ids: productIds },
+-    }),
+-  })
+-
+-  if (!res.ok) {
+-    throw new Error(`GraphQL request failed: ${res.status}`)
+-  }
+-
+-  const body = (await res.json()) as GraphQLResponse
+-  if (body.errors?.length) {
+-    throw new Error(body.errors.map(e => e.message).join('; '))
+-  }
++  const body = await shopifyGraphql<{ nodes: Array<ProductNode | null> }>(
++    shop.shopDomain,
++    shopRow.accessToken,
++    INVENTORY_QUERY,
++    { ids: productIds },
++  )
++  assertGraphqlOk(body.errors)
+ 
+-  const nodes = body.data?.nodes ?? []
+   const results: InventoryInfo[] = []
+-
+-  for (const node of nodes) {
++  for (const node of body.data?.nodes ?? []) {
+     if (!node?.id) continue
+     const variant = node.variants?.nodes?.[0]
+     results.push({
+       productId: node.id,
+       variantId: variant?.id,
+-      available: variant?.inventoryQuantity ?? 0,
++      available: availableFromInventoryQuantity(variant?.inventoryQuantity),
+       status: node.status,
+       price: variant?.price ?? '0',
+     })
+   }
+ 
+   return results
+ }
++
++export async function findProductByHandle(
++  shopDomain: string,
++  accessToken: string,
++  handle: string,
++): Promise<CatalogProductIds | null> {
++  const body = await shopifyGraphql<{
++    productByIdentifier: { id: string; variants?: { nodes: Array<{ id: string }> } } | null
++  }>(shopDomain, accessToken, PRODUCT_BY_HANDLE_QUERY, { identifier: { handle } })
++  assertGraphqlOk(body.errors)
++
++  const product = body.data?.productByIdentifier
++  if (!product?.id) return null
++  return {
++    productId: product.id,
++    variantId: product.variants?.nodes?.[0]?.id ?? null,
++  }
++}
++
++async function setVariantPrice(
++  shopDomain: string,
++  accessToken: string,
++  productId: string,
++  variantId: string,
++  price: number,
++): Promise<void> {
++  const body = await shopifyGraphql<{
++    productVariantsBulkUpdate: { userErrors: Array<{ message: string }> }
++  }>(shopDomain, accessToken, VARIANT_PRICE_MUTATION, {
++    productId,
++    variants: [{ id: variantId, price: price.toFixed(2) }],
++  })
++  assertGraphqlOk(body.errors)
++  const userErrors = body.data?.productVariantsBulkUpdate.userErrors ?? []
++  if (userErrors.length) {
++    throw new Error(userErrors.map(error => error.message).join('; '))
++  }
++}
++
++export async function createCatalogProduct(
++  shopDomain: string,
++  accessToken: string,
++  product: Pick<EloraProduct, 'handle' | 'title' | 'subtitle' | 'size' | 'price' | 'tags' | 'vendor'>,
++): Promise<CatalogProductIds> {
++  const body = await shopifyGraphql<{
++    productCreate: {
++      product: { id: string; variants?: { nodes: Array<{ id: string }> } } | null
++      userErrors: Array<{ message: string }>
++    }
++  }>(shopDomain, accessToken, PRODUCT_CREATE_MUTATION, {
++    product: {
++      title: product.title,
++      handle: product.handle,
++      vendor: product.vendor,
++      status: 'ACTIVE',
++      tags: product.tags,
++      descriptionHtml: `<p>${escapeHtml(product.subtitle)} ┬╖ ${escapeHtml(product.size)}</p>`,
++    },
++  })
++  assertGraphqlOk(body.errors)
++
++  const payload = body.data?.productCreate
++  const userErrors = payload?.userErrors ?? []
++  if (userErrors.length) {
++    throw new Error(userErrors.map(error => error.message).join('; '))
++  }
++
++  const created = payload?.product
++  if (!created?.id) {
++    throw new Error(`productCreate returned no product for handle ${product.handle}`)
++  }
++
++  const variantId = created.variants?.nodes?.[0]?.id ?? null
++  if (variantId) {
++    await setVariantPrice(shopDomain, accessToken, created.id, variantId, product.price)
++  }
++
++  return { productId: created.id, variantId }
++}
+diff --git a/app/server/src/shopify/graphql.test.ts b/app/server/src/shopify/graphql.test.ts
+new file mode 100644
+index 0000000..ed1c65d
+--- /dev/null
++++ b/app/server/src/shopify/graphql.test.ts
+@@ -0,0 +1,27 @@
++import { describe, it, expect, vi } from 'vitest'
++
++vi.mock('../db/client', () => ({
++  db: {
++    select: vi.fn(),
++  },
++}))
++
++import { availableFromInventoryQuantity } from './graphql'
++
++describe('availableFromInventoryQuantity', () => {
++  it('treats null inventoryQuantity as in-stock when untracked', () => {
++    expect(availableFromInventoryQuantity(null)).toBeGreaterThan(0)
++  })
++
++  it('keeps 0 as out of stock', () => {
++    expect(availableFromInventoryQuantity(0)).toBe(0)
++  })
++
++  it('passes through tracked positive quantities', () => {
++    expect(availableFromInventoryQuantity(12)).toBe(12)
++  })
++
++  it('treats missing quantity as out of stock', () => {
++    expect(availableFromInventoryQuantity(undefined)).toBe(0)
++  })
++})
+diff --git a/app/server/src/db/elora-catalog.ts b/app/server/src/db/elora-catalog.ts
+new file mode 100644
+index 0000000..2d1fb75
+--- /dev/null
++++ b/app/server/src/db/elora-catalog.ts
+@@ -0,0 +1,196 @@
++export interface EloraProduct {
++  handle: string
++  title: string
++  subtitle: string
++  size: string
++  price: number
++  tags: string[]
++  imageAsset: string
++  vendor: 'Elora'
++}
++
++export interface SampleRitualComponent {
++  handle: string
++  role: 'cleanse' | 'treat' | 'seal' | 'scent'
++}
++
++export interface SampleRitual {
++  title: string
++  description: string
++  scoreThreshold: number
++  components: SampleRitualComponent[]
++}
++
++export interface ResolvedProductIds {
++  productId: string
++  variantId: string | null
++}
++
++export interface ResolvedRitual {
++  title: string
++  description?: string
++  scoreThreshold?: number
++  components: Array<{
++    shopifyProductId: string
++    shopifyVariantId?: string | null
++    productTitleCache?: string
++    role: SampleRitualComponent['role']
++    quantity: number
++    sortOrder: number
++  }>
++}
++
++export const ELORA_PRODUCTS: EloraProduct[] = [
++  {
++    handle: 'nourishing-cleanser',
++    title: 'Nourishing Cleanser',
++    subtitle: 'Chamomile & Oat Extract',
++    size: '150 ml',
++    price: 32,
++    tags: ['concern:glow', 'concern:calm', 'moment:am', 'moment:pm', 'scent:unscented', 'scent:clean'],
++    imageAsset: 'product-nourishing-cleanser.png',
++    vendor: 'Elora',
++  },
++  {
++    handle: 'daily-hydration-gel',
++    title: 'Daily Hydration Gel',
++    subtitle: 'Hyaluronic Acid + Aloe Vera',
++    size: '50 ml',
++    price: 48,
++    tags: ['concern:hydrate', 'concern:barrier', 'moment:am', 'scent:unscented'],
++    imageAsset: 'product-daily-hydration-gel.png',
++    vendor: 'Elora',
++  },
++  {
++    handle: 'glow-drops-serum',
++    title: 'Glow Drops Serum',
++    subtitle: 'Niacinamide + Kakadu Plum',
++    size: '30 ml',
++    price: 52,
++    tags: ['concern:glow', 'moment:am', 'scent:unscented', 'scent:clean'],
++    imageAsset: 'product-glow-drops-serum.png',
++    vendor: 'Elora',
++  },
++  {
++    handle: 'airy-sun-fluid-spf-50',
++    title: 'Airy Sun Fluid SPF 50',
++    subtitle: 'Broad Spectrum UVA + UVB',
++    size: '50 ml',
++    price: 36,
++    tags: ['concern:glow', 'moment:am', 'scent:unscented', 'scent:clean'],
++    imageAsset: 'product-airy-sun-fluid.png',
++    vendor: 'Elora',
++  },
++  {
++    handle: 'restorative-night-cream',
++    title: 'Restorative Night Cream',
++    subtitle: 'Bakuchiol + Squalane',
++    size: '50 ml',
++    price: 58,
++    tags: ['concern:barrier', 'concern:calm', 'moment:pm', 'scent:unscented'],
++    imageAsset: 'product-restorative-night-cream.png',
++    vendor: 'Elora',
++  },
++  {
++    handle: 'balancing-toner',
++    title: 'Balancing Toner',
++    subtitle: 'Green Tea + Witch Hazel',
++    size: '200 ml',
++    price: 34,
++    tags: ['concern:calm', 'moment:am', 'moment:pm', 'scent:unscented'],
++    imageAsset: 'product-balancing-toner.png',
++    vendor: 'Elora',
++  },
++  {
++    handle: 'body-lotion',
++    title: 'Body Lotion',
++    subtitle: 'Shea Butter + Niacinamide',
++    size: '250 ml',
++    price: 36,
++    tags: ['concern:hydrate', 'moment:body', 'scent:warm'],
++    imageAsset: 'product-body-lotion.png',
++    vendor: 'Elora',
++  },
++  {
++    handle: 'body-oil',
++    title: 'Body Oil',
++    subtitle: 'Jojoba + Camellia Oil',
++    size: '100 ml',
++    price: 42,
++    tags: ['concern:glow', 'moment:body', 'scent:warm'],
++    imageAsset: 'product-body-oil.png',
++    vendor: 'Elora',
++  },
++  {
++    handle: 'eau-de-parfum',
++    title: 'Eau de Parfum',
++    subtitle: 'Warm Florals + Soft Woods',
++    size: '50 ml',
++    price: 72,
++    tags: ['concern:calm', 'moment:pm', 'moment:body', 'scent:floral', 'scent:warm'],
++    imageAsset: 'product-eau-de-parfum.png',
++    vendor: 'Elora',
++  },
++]
++
++export const SAMPLE_RITUALS: SampleRitual[] = [
++  {
++    title: 'AM Glow Ritual',
++    description: 'Morning face routine for radiant skin',
++    scoreThreshold: 75,
++    components: [
++      { handle: 'nourishing-cleanser', role: 'cleanse' },
++      { handle: 'glow-drops-serum', role: 'treat' },
++      { handle: 'airy-sun-fluid-spf-50', role: 'seal' },
++    ],
++  },
++  {
++    title: 'Body Ritual',
++    description: 'After-shower body ritual with matching scent',
++    scoreThreshold: 70,
++    components: [
++      { handle: 'nourishing-cleanser', role: 'cleanse' },
++      { handle: 'body-lotion', role: 'seal' },
++      { handle: 'body-oil', role: 'scent' },
++    ],
++  },
++  {
++    title: 'Night Barrier',
++    description: 'PM skin recovery and barrier support',
++    scoreThreshold: 70,
++    components: [
++      { handle: 'nourishing-cleanser', role: 'cleanse' },
++      { handle: 'balancing-toner', role: 'treat' },
++      { handle: 'restorative-night-cream', role: 'seal' },
++    ],
++  },
++]
++
++export function resolveRituals(productsByHandle: Map<string, ResolvedProductIds>): ResolvedRitual[] {
++  const titleByHandle = new Map(ELORA_PRODUCTS.map(product => [product.handle, product.title]))
++  const resolved: ResolvedRitual[] = []
++
++  for (const ritual of SAMPLE_RITUALS) {
++    const ids = ritual.components.map(component => productsByHandle.get(component.handle))
++    if (ids.some(entry => !entry?.productId)) continue
++
++    resolved.push({
++      title: ritual.title,
++      description: ritual.description,
++      scoreThreshold: ritual.scoreThreshold,
++      components: ritual.components.map((component, index) => {
++        const entry = productsByHandle.get(component.handle)!
++        return {
++          shopifyProductId: entry.productId,
++          shopifyVariantId: entry.variantId,
++          productTitleCache: titleByHandle.get(component.handle),
++          role: component.role,
++          quantity: 1,
++          sortOrder: index,
++        }
++      }),
++    })
++  }
++
++  return resolved
++}
+diff --git a/theme/sections/soft-ritual-builder.liquid b/theme/sections/soft-ritual-builder.liquid
+new file mode 100644
+index 0000000..3d93968
+--- /dev/null
++++ b/theme/sections/soft-ritual-builder.liquid
+@@ -0,0 +1,276 @@
++{%- assign builder_collection = section.settings.collection -%}
++{%- if builder_collection == blank -%}
++  {%- assign builder_collection = collections['all'] -%}
++{%- endif -%}
++
++<section
++  class="ritual-builder"
++  id="ritual-builder-{{ section.id }}"
++  data-ritual-builder
++  data-section-id="{{ section.id }}"
++>
++  <div class="ritual-builder__inner page-width">
++    <header class="ritual-builder__header">
++      {%- if section.settings.heading != blank -%}
++        <h2 class="ritual-builder__heading reveal">{{ section.settings.heading | escape }}</h2>
++      {%- endif -%}
++      {%- if section.settings.subheading != blank -%}
++        <p class="ritual-builder__subheading reveal reveal-delay-1">{{ section.settings.subheading | escape }}</p>
++      {%- endif -%}
++    </header>
++
++    <div class="ritual-builder__steps" data-steps>
++      <div class="ritual-builder__step" data-step="1">
++        <p class="ritual-builder__step-label">{{ 'builder.step_concern' | t }}</p>
++        <div class="ritual-builder__choices">
++          <button type="button" class="ritual-builder__choice" data-filter="concern:glow">{{ 'builder.choice_glow' | t }}</button>
++          <button type="button" class="ritual-builder__choice" data-filter="concern:hydrate">{{ 'builder.choice_hydrate' | t }}</button>
++          <button type="button" class="ritual-builder__choice" data-filter="concern:calm">{{ 'builder.choice_calm' | t }}</button>
++          <button type="button" class="ritual-builder__choice" data-filter="concern:barrier">{{ 'builder.choice_barrier' | t }}</button>
++        </div>
++      </div>
++
++      <div class="ritual-builder__step" data-step="2" hidden>
++        <p class="ritual-builder__step-label">{{ 'builder.step_moment' | t }}</p>
++        <div class="ritual-builder__choices">
++          <button type="button" class="ritual-builder__choice" data-filter="moment:am">{{ 'builder.choice_morning' | t }}</button>
++          <button type="button" class="ritual-builder__choice" data-filter="moment:pm">{{ 'builder.choice_evening' | t }}</button>
++          <button type="button" class="ritual-builder__choice" data-filter="moment:body">{{ 'builder.choice_after_shower' | t }}</button>
++        </div>
++      </div>
++
++      <div class="ritual-builder__step" data-step="3" hidden>
++        <p class="ritual-builder__step-label">{{ 'builder.step_scent' | t }}</p>
++        <div class="ritual-builder__choices">
++          <button type="button" class="ritual-builder__choice" data-filter="scent:clean">{{ 'builder.choice_clean' | t }}</button>
++          <button type="button" class="ritual-builder__choice" data-filter="scent:warm">{{ 'builder.choice_warm' | t }}</button>
++          <button type="button" class="ritual-builder__choice" data-filter="scent:floral">{{ 'builder.choice_floral' | t }}</button>
++          <button type="button" class="ritual-builder__choice" data-filter="scent:unscented">{{ 'builder.choice_unscented' | t }}</button>
++        </div>
++      </div>
++
++      <div class="ritual-builder__result" data-result hidden>
++        <p class="ritual-builder__step-label">{{ 'builder.result_title' | t }}</p>
++        <div class="ritual-builder__result-products" data-result-products></div>
++        <button type="button" class="btn btn--primary ritual-builder__add" data-add-ritual>{{ 'builder.add_ritual' | t }}</button>
++        <button type="button" class="ritual-builder__restart" data-restart>{{ 'builder.restart' | t }}</button>
++      </div>
++    </div>
++
++    <script type="application/json" data-builder-products>
++      [
++        {%- if builder_collection != blank -%}
++          {%- for product in builder_collection.products limit: 50 -%}
++            {
++              "id": {{ product.id | json }},
++              "title": {{ product.title | json }},
++              "handle": {{ product.handle | json }},
++              "image": {%- if product.featured_image != blank -%}{{ product.featured_image | image_url: width: 300 | json }}{%- else -%}""{%- endif -%},
++              "price": {{ product.price | money | json }},
++              "variantId": {%- if product.first_available_variant != blank -%}{{ product.first_available_variant.id | json }}{%- else -%}null{%- endif -%},
++              "tags": {{ product.tags | json }}
++            }{%- unless forloop.last -%},{%- endunless -%}
++          {%- endfor -%}
++        {%- endif -%}
++      ]
++    </script>
++  </div>
++</section>
++
++{% stylesheet %}
++  .ritual-builder {
++    padding: var(--spacing-section) 0;
++    background: var(--color-porcelain);
++  }
++
++  .ritual-builder__header {
++    margin-bottom: var(--spacing-xl);
++    max-width: 36ch;
++  }
++
++  .ritual-builder__heading {
++    margin: 0;
++    font-family: var(--font-display);
++    font-size: clamp(1.6rem, 3.2vw, 2.5rem);
++    line-height: 1.15;
++    letter-spacing: -0.02em;
++    color: var(--color-ink);
++  }
++
++  .ritual-builder__subheading {
++    margin: var(--spacing-md) 0 0;
++    color: var(--color-muted);
++    font-size: 1.0625rem;
++    line-height: 1.6;
++    max-width: 44ch;
++  }
++
++  .ritual-builder__steps {
++    display: flex;
++    flex-direction: column;
++    gap: var(--spacing-lg);
++  }
++
++  .ritual-builder__step-label {
++    margin: 0 0 var(--spacing-md);
++    font-family: var(--font-display);
++    font-size: 1.125rem;
++    line-height: 1.3;
++    color: var(--color-ink);
++  }
++
++  .ritual-builder__choices {
++    display: flex;
++    flex-direction: column;
++    gap: var(--spacing-sm);
++  }
++
++  @media (min-width: 480px) {
++    .ritual-builder__choices {
++      flex-direction: row;
++      flex-wrap: wrap;
++    }
++  }
++
++  .ritual-builder__choice {
++    flex: 1 1 auto;
++    min-width: 8rem;
++    padding: var(--spacing-md) var(--spacing-lg);
++    border: 1px solid var(--color-sand);
++    border-radius: var(--radius-md);
++    background: var(--color-surface);
++    color: var(--color-ink);
++    font-family: inherit;
++    font-size: 0.9375rem;
++    letter-spacing: 0.02em;
++    text-align: center;
++    cursor: pointer;
++    transition: border-color var(--transition-base), background-color var(--transition-base), box-shadow var(--transition-base);
++  }
++
++  @media (prefers-reduced-motion: no-preference) {
++    .ritual-builder__choice:hover {
++      border-color: var(--color-sage);
++      box-shadow: var(--shadow-sm);
++    }
++  }
++
++  .ritual-builder__choice.is-selected {
++    border-color: var(--color-ink);
++    background: var(--color-sand);
++    color: var(--color-ink);
++  }
++
++  .ritual-builder__choice:focus-visible {
++    outline: 2px solid var(--color-sage);
++    outline-offset: 2px;
++  }
++
++  .ritual-builder__result:not([hidden]) {
++    display: flex;
++    flex-direction: column;
++    gap: var(--spacing-md);
++  }
++
++  .ritual-builder__result-products {
++    display: flex;
++    flex-direction: column;
++    gap: var(--spacing-md);
++  }
++
++  @media (min-width: 768px) {
++    .ritual-builder__result-products {
++      flex-direction: row;
++      gap: var(--spacing-lg);
++    }
++  }
++
++  .ritual-builder__product-card {
++    flex: 1;
++    display: flex;
++    flex-direction: column;
++    gap: var(--spacing-sm);
++    padding: var(--spacing-md);
++    border-radius: var(--radius-md);
++    background: var(--color-surface);
++    border: 1px solid var(--color-sand);
++  }
++
++  .ritual-builder__product-card img {
++    width: 100%;
++    aspect-ratio: 1;
++    object-fit: cover;
++    border-radius: var(--radius-sm);
++  }
++
++  .ritual-builder__product-card p {
++    margin: 0;
++    font-family: var(--font-display);
++    font-size: 1rem;
++    line-height: 1.3;
++    color: var(--color-ink);
++  }
++
++  .ritual-builder__product-card small {
++    color: var(--color-muted);
++    font-size: 0.875rem;
++  }
++
++  .ritual-builder__add {
++    align-self: flex-start;
++    margin-top: var(--spacing-sm);
++  }
++
++  .ritual-builder__restart {
++    align-self: flex-start;
++    padding: 0;
++    border: none;
++    background: none;
++    color: var(--color-muted);
++    font-family: inherit;
++    font-size: 0.875rem;
++    letter-spacing: 0.03em;
++    text-decoration: underline;
++    text-underline-offset: 0.25em;
++    cursor: pointer;
++    transition: color var(--transition-fast);
++  }
++
++  .ritual-builder__restart:hover {
++    color: var(--color-ink);
++  }
++
++  .ritual-builder__restart:focus-visible {
++    outline: 2px solid var(--color-sage);
++    outline-offset: 2px;
++  }
++{% endstylesheet %}
++
++{% schema %}
++{
++  "name": "Soft Ritual Builder",
++  "settings": [
++    {
++      "type": "text",
++      "id": "heading",
++      "label": "Heading",
++      "default": "Build your soft ritual"
++    },
++    {
++      "type": "text",
++      "id": "subheading",
++      "label": "Subheading"
++    },
++    {
++      "type": "collection",
++      "id": "collection",
++      "label": "Builder product collection"
++    }
++  ],
++  "presets": [
++    {
++      "name": "Soft Ritual Builder"
++    }
++  ]
++}
++{% endschema %}

@@ -1,0 +1,18 @@
+<section class="utility-page page-width">
+  <header class="utility-page__header">
+    <h1 class="utility-page__title">{{ page.title | escape }}</h1>
+  </header>
+  {%- if page.content != blank -%}
+    <div class="rte utility-page__body">{{ page.content }}</div>
+  {%- endif -%}
+  <p class="utility-page__footer-link">
+    <a href="{{ routes.all_products_collection_url }}">{{ 'pages.continue' | t }}</a>
+  </p>
+</section>
+
+{% schema %}
+{
+  "name": "Page",
+  "settings": []
+}
+{% endschema %}

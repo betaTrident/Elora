@@ -1,0 +1,169 @@
+<footer class="footer">
+  <div class="footer__trust page-width">
+    <ul class="footer__badges" role="list">
+      <li class="footer__badge">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2 8l4 4 8-8"/>
+        </svg>
+        <span>Clean formula</span>
+      </li>
+      <li class="footer__badge">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2 8l4 4 8-8"/>
+        </svg>
+        <span>Cruelty free</span>
+      </li>
+      <li class="footer__badge">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2 8l4 4 8-8"/>
+        </svg>
+        <span>No synthetic fragrance</span>
+      </li>
+      <li class="footer__badge">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2 8l4 4 8-8"/>
+        </svg>
+        <span>Thoughtfully made</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="footer__columns-wrap page-width">
+    <div class="footer__cols">
+      <div class="footer__col">
+        <h3 class="footer__col-heading">{{ section.settings.col_shop_heading | default: 'Shop' }}</h3>
+        <ul class="footer__col-list" role="list">
+          <li><a href="{{ routes.collections_url }}">{{ 'footer.all_collections' | t }}</a></li>
+          <li><a href="{{ routes.all_products_collection_url }}?sort_by=created-descending">{{ 'footer.new_arrivals' | t }}</a></li>
+          <li><a href="{{ routes.all_products_collection_url }}?sort_by=best-selling">{{ 'footer.best_sellers' | t }}</a></li>
+          <li>
+            {%- if collections.sets != blank -%}
+              <a href="{{ collections.sets.url }}">{{ 'footer.gift_sets' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.collections_url }}/sets">{{ 'footer.gift_sets' | t }}</a>
+            {%- endif -%}
+          </li>
+        </ul>
+      </div>
+
+      <div class="footer__col">
+        <h3 class="footer__col-heading">{{ section.settings.col_company_heading | default: 'Company' }}</h3>
+        <ul class="footer__col-list" role="list">
+          <li>
+            {%- if pages.about != blank -%}
+              <a href="{{ pages.about.url }}">{{ 'footer.about' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/about">{{ 'footer.about' | t }}</a>
+            {%- endif -%}
+          </li>
+          <li>
+            {%- if pages.ingredients != blank -%}
+              <a href="{{ pages.ingredients.url }}">{{ 'footer.ingredients' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/ingredients">{{ 'footer.ingredients' | t }}</a>
+            {%- endif -%}
+          </li>
+          <li>
+            {%- if pages.sustainability != blank -%}
+              <a href="{{ pages.sustainability.url }}">{{ 'footer.sustainability' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/sustainability">{{ 'footer.sustainability' | t }}</a>
+            {%- endif -%}
+          </li>
+          <li>
+            {%- if pages.contact != blank -%}
+              <a href="{{ pages.contact.url }}">{{ 'footer.contact' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/contact">{{ 'footer.contact' | t }}</a>
+            {%- endif -%}
+          </li>
+        </ul>
+      </div>
+
+      <div class="footer__col">
+        <h3 class="footer__col-heading">{{ section.settings.col_support_heading | default: 'Support' }}</h3>
+        <ul class="footer__col-list" role="list">
+          <li>
+            {%- if pages.faq != blank -%}
+              <a href="{{ pages.faq.url }}">{{ 'footer.faq' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/faq">{{ 'footer.faq' | t }}</a>
+            {%- endif -%}
+          </li>
+          <li>
+            {%- if pages['shipping-returns'] != blank -%}
+              <a href="{{ pages['shipping-returns'].url }}">{{ 'footer.shipping' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/shipping-returns">{{ 'footer.shipping' | t }}</a>
+            {%- endif -%}
+          </li>
+          <li>
+            {%- if pages['track-order'] != blank -%}
+              <a href="{{ pages['track-order'].url }}">{{ 'footer.track_order' | t }}</a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}pages/track-order">{{ 'footer.track_order' | t }}</a>
+            {%- endif -%}
+          </li>
+        </ul>
+      </div>
+
+      <div class="footer__col">
+        <h3 class="footer__col-heading">{{ section.settings.col_follow_heading | default: 'Follow' }}</h3>
+        <ul class="footer__col-list" role="list">
+          <li><a href="https://instagram.com" target="_blank" rel="noopener">Instagram</a></li>
+          <li><a href="https://tiktok.com" target="_blank" rel="noopener">TikTok</a></li>
+          <li><a href="https://pinterest.com" target="_blank" rel="noopener">Pinterest</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer__bottom page-width">
+    <div class="footer__bottom-inner">
+      {% render 'brand-lockup' %}
+      {%- assign year = 'now' | date: '%Y' -%}
+      <p class="footer__copyright">{{ 'footer.copyright' | t: year: year, shop_name: shop.name }}</p>
+    </div>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Footer",
+  "class": "section-footer",
+  "enabled_on": {
+    "groups": ["footer"]
+  },
+  "settings": [
+    {
+      "type": "link_list",
+      "id": "menu",
+      "label": "Footer menu"
+    },
+    {
+      "type": "text",
+      "id": "col_shop_heading",
+      "label": "Shop column heading",
+      "default": "Shop"
+    },
+    {
+      "type": "text",
+      "id": "col_company_heading",
+      "label": "Company column heading",
+      "default": "Company"
+    },
+    {
+      "type": "text",
+      "id": "col_support_heading",
+      "label": "Support column heading",
+      "default": "Support"
+    },
+    {
+      "type": "text",
+      "id": "col_follow_heading",
+      "label": "Follow column heading",
+      "default": "Follow"
+    }
+  ]
+}
+{% endschema %}

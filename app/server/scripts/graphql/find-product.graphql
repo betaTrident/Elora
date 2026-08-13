@@ -1,0 +1,11 @@
+query FindProductByHandle($identifier: ProductIdentifierInput!) {
+  productByIdentifier(identifier: $identifier) {
+    id
+    handle
+    variants(first: 10) {
+      nodes {
+        id
+      }
+    }
+  }
+}

@@ -1,0 +1,93 @@
+# RitualScore — App Decisions
+
+Architecture and product decisions for Elora (storefront) and RitualScore (embedded Admin app). This is not a setup guide; see `README.md` for commands.
+
+## Store Concept
+
+**Elora** is a customer-facing beauty brand. Tagline: **Your everyday beauty ritual.**
+
+The target customer is a beauty shopper building a simple daily routine — cleanse, treat, seal, plus optional scent — not a clinical lab catalog. Kits break when one SKU goes out of stock; Elora sells a ritual, not a pile of SKUs. The storefront voice is soft, elegant, and distinctly feminine without being literal: no cute slang, no clinical lab-speak.
+
+## App Idea
+
+**RitualScore** is the embedded Shopify Admin app. The merchant tracks kit **health**, not just a product list.
+
+Workflow today:
+
+1. Create a routine (products + roles: cleanse / treat / seal / scent).
+2. Score on save.
+3. Alerts open when stock, completeness, or score fails the threshold.
+4. Activity log records the trail.
+5. Settings holds the per-shop default threshold.
+6. Recalculate (one ritual or all) refreshes scores from live inventory.
+
+A score plus alerts plus an activity trail answers “which kits are broken today?” without exporting inventory. That is the difference from CRUD.
+
+## Architecture/Schema
+
+### Stack
+
+- **Express API** — a small REST surface for the embed (rituals, scores, alerts, activity, settings). Remix’s nested routing and Shopify template were unnecessary for this MVP.
+- **Vite + React Admin UI** — fast Polaris embed; `shopify.web.toml` already runs frontend and backend as two CLI processes.
+- **Drizzle + MySQL** — SQL you can read in migrations; MySQL is already provided by Docker Compose in the repo (not Prisma/Postgres).
+
+### Eight tables
+
+| Table | Role |
+|-------|------|
+| `shops` | Shop isolation. One row per `shop_domain`; `uninstalled_at` for soft delete on `app/uninstalled`. |
+| `sessions` | Shopify session storage (shop, token, expiry). Admin API auth verifies the App Bridge JWT session token against the shop. |
+| `shop_settings` | Per-shop default score threshold (`default_threshold`, default 70). |
+| `rituals` | Kit header: title, description, status (`active` / `archived`), per-ritual `score_threshold`, last score. |
+| `ritual_components` | Line items + role (`cleanse`, `treat`, `seal`, `scent`). `ritual_id` **cascades on delete**. |
+| `score_snapshots` | Historical scores: integer score + JSON breakdown per compute. |
+| `alerts` | Open/resolved issues (`low_score`, `component_unavailable`; `warning` / `critical`). |
+| `activity_logs` | Audit trail (`merchant` / `system` actor, action, entity, before/after JSON). |
+
+### Health Score formula
+
+Implemented by `calculateHealthScore` in `app/server/src/services/scoring.ts`. Empty kit → **total 0** (all three bars 0). Otherwise:
+
+**Availability (0–50).** Share of components that are in stock: `available > 0` **and** `status === 'ACTIVE'`.
+
+```
+availability = round((inStockCount / componentCount) * 50)
+```
+
+**Completeness (0–20).** Share of required roles present. Required: `cleanse`, `treat`, `seal`. `scent` is optional and does not count toward this bar.
+
+```
+completeness = round((requiredRolesPresent / 3) * 20)
+```
+
+**Margin (0–30).** If any component has `unitCost != null` and `unitCost > 0`, average of `(price − cost) / price` clamped to `[0, 1]`, times 30, rounded. Price comes from inventory; a missing product or `price <= 0` contributes 0 to that average. If no positive costs exist, margin is **15** (mid default).
+
+```
+margin = costsExist
+  ? round(average(clamp((price - cost) / price, 0, 1)) * 30)
+  : 15
+```
+
+**Total** = availability + completeness + margin. Does not exceed 100 in practice (50 + 20 + 30). Empty kits skip the mid-default and return 0.
+
+Inventory is pulled with Admin GraphQL at score time (`fetchInventory`). Scoring is not live-pushed from inventory webhooks.
+
+## Tradeoffs
+
+| Decision | What we chose | Alternative | Why |
+|----------|---------------|-------------|-----|
+| App framework | Vite + Express (not Remix Shopify template) | Remix | Faster Polaris embed; CLI `shopify.web.toml` already runs both processes |
+| Scoring | Deterministic rules | ML | Explainable bars in Admin; unit-testable; no training data |
+| Inventory freshness | Recalculate on save / button / settings “recalculate all” | Inventory webhooks | Webhooks need a public URL; localhost `shopify app dev --use-localhost` cannot subscribe `app/uninstalled` either |
+| Admin state | React local state | Redux | Four pages, Polaris forms; no shared cache that justified Redux |
+
+The only live webhook is `app/uninstalled` (HMAC-verified shop soft-delete). There is no billing, no ML model, and no inventory webhook subscription in this repo.
+
+## What I'd Improve With More Time
+
+- **Inventory webhooks** — subscribe to inventory and product status so scores move when stock changes, instead of waiting for save / Recalculate. Needs a public HTTPS URL (or a tunnel that Shopify will accept), which localhost `shopify app dev --use-localhost` does not provide.
+- **Margin cost sync** — `unit_cost` is merchant-entered on the ritual line. Pulling Shopify variant cost (or a cost metafield) would keep the 0–30 bar honest without retyping.
+- **Theme metafield integration** — store the scored ritual on the storefront (metafields / metaobjects) so the Soft Ritual Builder and PDP can show kit health, not only Admin.
+- **Multi-store testing** — install and score on more than one development shop to catch shop-isolation bugs that a single-store loop misses.
+- **App Store billing** — Shopify Billing API (trial, plan, usage) is out of scope for this MVP; needed before a public listing.
+- **AI-assisted routine recommendations** — suggest cleanse / treat / seal combinations from catalog + inventory. The current score stays rule-based and explainable; a recommender would sit beside it, not replace it.
