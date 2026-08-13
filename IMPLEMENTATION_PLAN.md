@@ -60,8 +60,8 @@ Repo folder: `elora/`. Theme shop name in `settings_schema.json` / locales: Elor
 | 9 — Health Score Engine + Alerts | **DONE** |
 | 10 — Settings Page | **DONE** |
 | 11 — Shopify Theme (Elora) | **DONE** |
-| 12 — Soft Ritual Builder | NOT STARTED |
-| 13 — Seed Data & Demo Script | NOT STARTED |
+| 12 — Soft Ritual Builder | **DONE** |
+| 13 — Seed Data & Demo Script | **DONE** |
 | 14 — Testing | NOT STARTED |
 | 15 — Security & Polish | NOT STARTED |
 | 16 — Documentation & Deliverables | NOT STARTED |
@@ -2080,7 +2080,7 @@ shopify theme dev --store <your-dev-store>.myshopify.com
 
 ## Phase 12 — Soft Ritual Builder (Interactive Feature)
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Goal
 Step-by-step quiz (concern → moment → scent mood) recommends 3-product routine and adds to cart via Ajax with ritual line-item properties.
@@ -2282,13 +2282,13 @@ Step-by-step quiz (concern → moment → scent mood) recommends 3-product routi
 
 ---
 
-**End of Phase 12 — NOT STARTED**
+**End of Phase 12 — DONE**
 
 ---
 
 ## Phase 13 — Seed Data & Demo Script
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Goal
 A seed script populates demo beauty products + 3 sample rituals so the app demos without manual setup.
@@ -2369,7 +2369,7 @@ seed()
 
 ---
 
-**End of Phase 13 — NOT STARTED**
+**End of Phase 13 — DONE**
 
 ---
 
@@ -2581,5 +2581,5 @@ Use this before submission.
 
 ---
 
-> **Next step:** Phase 0–11 are **DONE**. Continue at **Phase 12 — Soft Ritual Builder (Interactive Feature)**.
+> **Next step:** Phase 0–13 are **DONE**. Continue at **Phase 14 — Testing**.
 > Update the Phase progress table and each phase **Status** / **End of Phase** line as work completes.

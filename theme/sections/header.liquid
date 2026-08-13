@@ -1,32 +1,42 @@
 <header class="header page-width">
-  {% render 'brand-lockup' %}
+  {% render 'brand-lockup', compact: true %}
 
-  <nav class="header__nav" aria-label="{{ 'header.menu' | t }}">
+  <nav class="header__nav" id="site-nav" aria-label="{{ 'header.menu' | t }}">
     <ul>
-      {%- for link in linklists.main-menu.links -%}
-        <li>
-          <a
-            href="{{ link.url }}"
-            {% if link.current %}
-              aria-current="page"
-            {% endif %}
-          >
-            {{ link.title | escape }}
-          </a>
-        </li>
-      {%- endfor -%}
+      <li>
+        <a
+          href="{{ routes.all_products_collection_url }}"
+          {% if request.path == routes.all_products_collection_url %}aria-current="page"{% endif %}
+        >
+          {{ 'header.shop_all' | t }}
+        </a>
+      </li>
+      <li>
+        {%- if request.page_type == 'index' -%}
+          <a href="#ritual">{{ 'header.ritual' | t }}</a>
+        {%- else -%}
+          <a href="{{ routes.root_url }}#ritual">{{ 'header.ritual' | t }}</a>
+        {%- endif -%}
+      </li>
+      <li>
+        {%- if pages.about != blank -%}
+          <a href="{{ pages.about.url }}" {% if page.handle == 'about' %}aria-current="page"{% endif %}>{{ 'header.about' | t }}</a>
+        {%- else -%}
+          <a href="{{ routes.root_url }}pages/about" {% if page.handle == 'about' %}aria-current="page"{% endif %}>{{ 'header.about' | t }}</a>
+        {%- endif -%}
+      </li>
     </ul>
   </nav>
 
   <div class="header__icons">
-    <button class="header__icon-btn" aria-label="Search" type="button">
+    <button class="header__icon-btn" aria-label="{{ 'header.search' | t }}" type="button">
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="8.5" cy="8.5" r="5.5"/>
         <line x1="13" y1="13" x2="18" y2="18"/>
       </svg>
     </button>
 
-    <a href="{{ routes.account_url }}" class="header__icon-btn" aria-label="{{ 'header.account' | t | default: 'Account' }}">
+    <a href="{{ routes.account_url }}" class="header__icon-btn" aria-label="{{ 'header.account' | t }}">
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="10" cy="6.5" r="3.5"/>
         <path d="M2.5 18c0-4.142 3.358-7.5 7.5-7.5s7.5 3.358 7.5 7.5"/>
@@ -39,10 +49,26 @@
         <line x1="3" y1="6" x2="17" y2="6"/>
         <path d="M13 10a3 3 0 01-6 0"/>
       </svg>
-      {%- if cart.item_count > 0 -%}
-        <span class="header__cart-badge" aria-hidden="true">{{ cart.item_count }}</span>
-      {%- endif -%}
+      <span class="header__cart-badge" aria-hidden="true">{{ cart.item_count }}</span>
     </a>
+
+    <button
+      class="header__mobile-toggle"
+      aria-label="{{ 'header.open_menu' | t }}"
+      aria-expanded="false"
+      aria-controls="site-nav"
+      data-mobile-toggle
+    >
+      <svg class="header__hamburger-icon" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+        <line x1="2" y1="6" x2="20" y2="6"/>
+        <line x1="2" y1="11" x2="20" y2="11"/>
+        <line x1="2" y1="16" x2="20" y2="16"/>
+      </svg>
+      <svg class="header__close-icon" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" style="display:none;">
+        <line x1="4" y1="4" x2="18" y2="18"/>
+        <line x1="18" y1="4" x2="4" y2="18"/>
+      </svg>
+    </button>
   </div>
 </header>
 

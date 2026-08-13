@@ -55,8 +55,10 @@ async function exchangeAndUpsertShop(shopDomain: string, sessionToken: string) {
 
   await db
     .insert(shops)
-    .values({ shopDomain, accessToken: access_token, scope: 'read_products,read_inventory' })
-    .onDuplicateKeyUpdate({ set: { accessToken: access_token, uninstalledAt: null } })
+    .values({ shopDomain, accessToken: access_token, scope: 'read_products,read_inventory,write_products' })
+    .onDuplicateKeyUpdate({
+      set: { accessToken: access_token, uninstalledAt: null, scope: 'read_products,read_inventory,write_products' },
+    })
 
   const [shop] = await db
     .select({ id: shops.id })

@@ -1,0 +1,277 @@
+{% doc %}
+Renders the key-ingredient list for an Elora catalog product.
+@param {product} product - Product whose handle selects ingredient copy
+@example
+{% render 'product-ingredients', product: product %}
+{% enddoc %}
+
+{%- if product != blank -%}
+  <ul class="product__ingredients" role="list">
+    {%- case product.handle -%}
+      {%- when 'nourishing-cleanser' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.chamomile_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.chamomile_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.oat_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.oat_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.glycerin_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.glycerin_copy' | t }}</p>
+          </div>
+        </li>
+      {%- when 'daily-hydration-gel' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.hyaluronic_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.hyaluronic_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.aloe_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.aloe_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.green_tea_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.green_tea_copy' | t }}</p>
+          </div>
+        </li>
+      {%- when 'glow-drops-serum' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.niacinamide_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.niacinamide_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.kakadu_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.kakadu_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.hyaluronic_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.hyaluronic_copy' | t }}</p>
+          </div>
+        </li>
+      {%- when 'airy-sun-fluid-spf-50' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.spf_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.spf_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.niacinamide_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.niacinamide_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.green_tea_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.green_tea_copy' | t }}</p>
+          </div>
+        </li>
+      {%- when 'restorative-night-cream' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.bakuchiol_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.bakuchiol_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.squalane_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.squalane_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.ceramide_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.ceramide_copy' | t }}</p>
+          </div>
+        </li>
+      {%- when 'balancing-toner' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.green_tea_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.green_tea_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.witch_hazel_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.witch_hazel_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.panthenol_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.panthenol_copy' | t }}</p>
+          </div>
+        </li>
+      {%- when 'body-lotion' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.shea_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.shea_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.niacinamide_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.niacinamide_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.glycerin_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.glycerin_copy' | t }}</p>
+          </div>
+        </li>
+      {%- when 'body-oil' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.jojoba_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.jojoba_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.camellia_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.camellia_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.vitamin_e_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.vitamin_e_copy' | t }}</p>
+          </div>
+        </li>
+      {%- when 'eau-de-parfum' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.florals_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.florals_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.woods_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.woods_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.musk_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.musk_copy' | t }}</p>
+          </div>
+        </li>
+      {%- when 'soft-bloom' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.bloom_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.bloom_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.florals_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.florals_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.dew_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.dew_copy' | t }}</p>
+          </div>
+        </li>
+      {%- when 'warm-skin' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.amber_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.amber_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.woods_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.woods_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.musk_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.musk_copy' | t }}</p>
+          </div>
+        </li>
+      {%- when 'bare-linen' -%}
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.linen_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.linen_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-drop' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.air_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.air_copy' | t }}</p>
+          </div>
+        </li>
+        <li class="product__ingredient">
+          <span class="product__ingredient-icon" aria-hidden="true">{% render 'icon-leaf' %}</span>
+          <div>
+            <p class="product__ingredient-name">{{ 'ingredients.cotton_name' | t }}</p>
+            <p class="product__ingredient-copy">{{ 'ingredients.cotton_copy' | t }}</p>
+          </div>
+        </li>
+    {%- endcase -%}
+  </ul>
+{%- endif -%}

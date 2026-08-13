@@ -1,0 +1,333 @@
+{%- assign builder_collection = section.settings.collection -%}
+{%- if builder_collection == blank -%}
+  {%- assign builder_collection = collections['all'] -%}
+{%- endif -%}
+
+<section
+  class="ritual-builder"
+  id="ritual"
+  data-ritual-builder
+  data-section-id="{{ section.id }}"
+>
+  <div class="ritual-builder__inner page-width">
+    <header class="ritual-builder__header">
+      {%- if section.settings.heading != blank -%}
+        <h2 class="ritual-builder__heading reveal">{{ section.settings.heading | escape }}</h2>
+      {%- endif -%}
+      {%- if section.settings.subheading != blank -%}
+        <p class="ritual-builder__subheading reveal reveal-delay-1">{{ section.settings.subheading | escape }}</p>
+      {%- endif -%}
+    </header>
+
+    <div class="ritual-builder__steps" data-steps>
+      <div class="ritual-builder__step" data-step="1">
+        <p class="ritual-builder__step-label">{{ 'builder.step_concern' | t }}</p>
+        <div class="ritual-builder__choices">
+          <button type="button" class="ritual-builder__choice" data-filter="concern:glow" data-choice-label="{{ 'builder.choice_glow' | t }}">{{ 'builder.choice_glow' | t }}</button>
+          <button type="button" class="ritual-builder__choice" data-filter="concern:hydrate" data-choice-label="{{ 'builder.choice_hydrate' | t }}">{{ 'builder.choice_hydrate' | t }}</button>
+          <button type="button" class="ritual-builder__choice" data-filter="concern:calm" data-choice-label="{{ 'builder.choice_calm' | t }}">{{ 'builder.choice_calm' | t }}</button>
+          <button type="button" class="ritual-builder__choice" data-filter="concern:barrier" data-choice-label="{{ 'builder.choice_barrier' | t }}">{{ 'builder.choice_barrier' | t }}</button>
+        </div>
+      </div>
+
+      <div class="ritual-builder__step" data-step="2" hidden>
+        <p class="ritual-builder__step-label">{{ 'builder.step_moment' | t }}</p>
+        <div class="ritual-builder__choices">
+          <button type="button" class="ritual-builder__choice" data-filter="moment:am" data-choice-label="{{ 'builder.choice_morning' | t }}">{{ 'builder.choice_morning' | t }}</button>
+          <button type="button" class="ritual-builder__choice" data-filter="moment:pm" data-choice-label="{{ 'builder.choice_evening' | t }}">{{ 'builder.choice_evening' | t }}</button>
+          <button type="button" class="ritual-builder__choice" data-filter="moment:body" data-choice-label="{{ 'builder.choice_after_shower' | t }}">{{ 'builder.choice_after_shower' | t }}</button>
+        </div>
+      </div>
+
+      <div class="ritual-builder__step" data-step="3" hidden>
+        <p class="ritual-builder__step-label">{{ 'builder.step_scent' | t }}</p>
+        <div class="ritual-builder__choices">
+          <button type="button" class="ritual-builder__choice" data-filter="scent:clean" data-choice-label="{{ 'builder.choice_clean' | t }}">{{ 'builder.choice_clean' | t }}</button>
+          <button type="button" class="ritual-builder__choice" data-filter="scent:warm" data-choice-label="{{ 'builder.choice_warm' | t }}">{{ 'builder.choice_warm' | t }}</button>
+          <button type="button" class="ritual-builder__choice" data-filter="scent:floral" data-choice-label="{{ 'builder.choice_floral' | t }}">{{ 'builder.choice_floral' | t }}</button>
+          <button type="button" class="ritual-builder__choice" data-filter="scent:unscented" data-choice-label="{{ 'builder.choice_unscented' | t }}">{{ 'builder.choice_unscented' | t }}</button>
+        </div>
+      </div>
+
+      <div class="ritual-builder__result" data-result hidden>
+        <p class="ritual-builder__step-label">{{ 'builder.result_title' | t }}</p>
+        <p class="ritual-builder__result-summary" data-result-summary></p>
+        <div class="ritual-builder__result-products" data-result-products></div>
+        <div class="ritual-builder__actions">
+          <button type="button" class="btn btn--primary ritual-builder__add" data-add-ritual>{{ 'builder.add_ritual' | t }}</button>
+          <button type="button" class="ritual-builder__restart" data-restart>{{ 'builder.restart' | t }}</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="application/json" data-builder-products>
+      [
+        {%- if builder_collection != blank -%}
+          {%- for product in builder_collection.products limit: 50 -%}
+            {
+              "id": {{ product.id | json }},
+              "title": {{ product.title | json }},
+              "handle": {{ product.handle | json }},
+              "url": {{ product.url | json }},
+              "subtitle": {{ product.metafields.elora.subtitle.value | default: '' | json }},
+              "image": {%- if product.featured_image != blank -%}{{ product.featured_image | image_url: width: 600 | json }}{%- else -%}""{%- endif -%},
+              "price": {{ product.price | money | json }},
+              "variantId": {%- if product.first_available_variant != blank -%}{{ product.first_available_variant.id | json }}{%- else -%}null{%- endif -%},
+              "tags": {{ product.tags | json }}
+            }{%- unless forloop.last -%},{%- endunless -%}
+          {%- endfor -%}
+        {%- endif -%}
+      ]
+    </script>
+  </div>
+</section>
+
+{% stylesheet %}
+  .ritual-builder {
+    padding: var(--spacing-section) 0;
+    background: var(--color-porcelain);
+    scroll-margin-top: var(--header-stack, 6.75rem);
+  }
+
+  .ritual-builder__header {
+    margin-bottom: var(--spacing-xl);
+    max-width: 36ch;
+  }
+
+  .ritual-builder__heading {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 3.2vw, 2.5rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+  }
+
+  .ritual-builder__subheading {
+    margin: var(--spacing-md) 0 0;
+    color: var(--color-muted);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    max-width: 44ch;
+  }
+
+  .ritual-builder__steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+  }
+
+  .ritual-builder__step-label {
+    margin: 0 0 var(--spacing-md);
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    line-height: 1.3;
+    color: var(--color-ink);
+  }
+
+  .ritual-builder__choices {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  @media (min-width: 480px) {
+    .ritual-builder__choices {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+  }
+
+  .ritual-builder__choice {
+    flex: 1 1 auto;
+    min-width: 8rem;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: 1px solid var(--color-sand);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: 0.9375rem;
+    letter-spacing: 0.02em;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--transition-base), background-color var(--transition-base), box-shadow var(--transition-base);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .ritual-builder__choice:hover {
+      border-color: var(--color-sage);
+      box-shadow: var(--shadow-sm);
+    }
+  }
+
+  .ritual-builder__choice.is-selected {
+    border-color: var(--color-ink);
+    background: var(--color-sand);
+    color: var(--color-ink);
+  }
+
+  .ritual-builder__choice:focus-visible {
+    outline: 2px solid var(--color-sage);
+    outline-offset: 2px;
+  }
+
+  .ritual-builder__result:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    max-width: 44rem;
+  }
+
+  .ritual-builder__result-summary {
+    margin: -0.35rem 0 0;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    letter-spacing: 0.04em;
+  }
+
+  .ritual-builder__result-summary:empty {
+    display: none;
+  }
+
+  .ritual-builder__result-products {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 11.75rem));
+    justify-content: start;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-sm);
+  }
+
+  @media (max-width: 699px) {
+    .ritual-builder__result-products {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--spacing-sm);
+    }
+  }
+
+  .ritual-builder__product-card {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+
+  .ritual-builder__product-link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .ritual-builder__product-link:hover .ritual-builder__product-media {
+      box-shadow: var(--shadow-sm);
+    }
+  }
+
+  .ritual-builder__product-media {
+    aspect-ratio: 3 / 4;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--color-surface);
+    border: 1px solid var(--color-sand);
+  }
+
+  .ritual-builder__product-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .ritual-builder__product-card h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
+  }
+
+  .ritual-builder__product-card .ritual-builder__product-subtitle {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .ritual-builder__product-card small {
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+  }
+
+  .ritual-builder__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md) var(--spacing-lg);
+    margin-top: var(--spacing-sm);
+  }
+
+  .ritual-builder__add {
+    align-self: auto;
+    margin-top: 0;
+  }
+
+  .ritual-builder__restart {
+    align-self: auto;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-muted);
+    font-family: inherit;
+    font-size: 0.875rem;
+    letter-spacing: 0.03em;
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+  }
+
+  .ritual-builder__restart:hover {
+    color: var(--color-ink);
+  }
+
+  .ritual-builder__restart:focus-visible {
+    outline: 2px solid var(--color-sage);
+    outline-offset: 2px;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Soft Ritual Builder",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Build your soft ritual"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "Subheading"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Builder product collection"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Soft Ritual Builder"
+    }
+  ]
+}
+{% endschema %}

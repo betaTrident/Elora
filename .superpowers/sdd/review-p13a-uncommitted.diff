@@ -1,0 +1,297 @@
+﻿# Review package — Task 13A (uncommitted)
+
+BASE: 4b9dc8b
+HEAD: working tree (no commit)
+Scope: 13A Liquid/JSON only. Binary product-*.png listed below, not inlined.
+
+## Product stills on disk
+ product-airy-sun-fluid.png  1647919 bytes
+ product-balancing-toner.png  1748005 bytes
+ product-body-lotion.png  1832894 bytes
+ product-body-oil.png  1741878 bytes
+ product-daily-hydration-gel.png  1865960 bytes
+ product-eau-de-parfum.png  1864841 bytes
+ product-glow-drops-serum.png  1735358 bytes
+ product-nourishing-cleanser.png  1731320 bytes
+ product-restorative-night-cream.png  1869992 bytes
+
+## Commit list
+(none)
+
+## Stat
+ theme/locales/en.default.json             | 57 +++++++++++++++++++++++++++++++
+ theme/sections/featured-collection.liquid | 22 +++++++++++-
+ theme/sections/main-product.liquid        |  9 ++++-
+ theme/snippets/product-card.liquid        |  9 ++++-
+ 4 files changed, 94 insertions(+), 3 deletions(-)
+ theme/snippets/product-asset.liquid (untracked, new file)
+
+## Diff
+
+diff --git a/theme/locales/en.default.json b/theme/locales/en.default.json
+index 48b4548..8502161 100644
+--- a/theme/locales/en.default.json
++++ b/theme/locales/en.default.json
+@@ -35,19 +35,76 @@
+     "price": "Price"
+   },
+   "collections": {
+     "empty": "Nothing here yet. Explore another ritual.",
+     "title": "Collection"
+   },
+   "featured_collection": {
+     "empty": "Choose a collection to feature.",
+     "view_all": "View {{ title }}"
+   },
++  "lineup": {
++    "nourishing_cleanser": {
++      "title": "Nourishing Cleanser",
++      "price": "$32.00"
++    },
++    "daily_hydration_gel": {
++      "title": "Daily Hydration Gel",
++      "price": "$48.00"
++    },
++    "glow_drops_serum": {
++      "title": "Glow Drops Serum",
++      "price": "$52.00"
++    },
++    "airy_sun_fluid_spf_50": {
++      "title": "Airy Sun Fluid SPF 50",
++      "price": "$36.00"
++    },
++    "restorative_night_cream": {
++      "title": "Restorative Night Cream",
++      "price": "$58.00"
++    },
++    "balancing_toner": {
++      "title": "Balancing Toner",
++      "price": "$34.00"
++    },
++    "body_lotion": {
++      "title": "Body Lotion",
++      "price": "$36.00"
++    },
++    "body_oil": {
++      "title": "Body Oil",
++      "price": "$42.00"
++    },
++    "eau_de_parfum": {
++      "title": "Eau de Parfum",
++      "price": "$72.00"
++    }
++  },
+   "footer": {
+     "copyright": "┬⌐ {{ year }} {{ shop_name }}",
+     "navigation": "Footer navigation"
+   },
+   "ingredient_honesty": {
+     "in": "What's in.",
+     "never": "What's never in."
++  },
++  "builder": {
++    "step_concern": "What does your skin need?",
++    "step_moment": "When is your ritual?",
++    "step_scent": "Choose a scent mood",
++    "result_title": "Your soft ritual",
++    "add_ritual": "Add ritual to bag",
++    "restart": "Start over",
++    "choice_glow": "Glow",
++    "choice_hydrate": "Hydrate",
++    "choice_calm": "Calm",
++    "choice_barrier": "Barrier repair",
++    "choice_morning": "Morning",
++    "choice_evening": "Evening",
++    "choice_after_shower": "After shower",
++    "choice_clean": "Clean",
++    "choice_warm": "Warm",
++    "choice_floral": "Floral",
++    "choice_unscented": "Unscented"
+   }
+ }
+diff --git a/theme/sections/featured-collection.liquid b/theme/sections/featured-collection.liquid
+index 51cd05d..d7c89ae 100644
+--- a/theme/sections/featured-collection.liquid
++++ b/theme/sections/featured-collection.liquid
+@@ -9,21 +9,41 @@
+       {%- for product in featured.products limit: section.settings.products_to_show -%}
+         <li>{% render 'product-card', product: product %}</li>
+       {%- endfor -%}
+     </ul>
+     {%- if featured.url != blank -%}
+       <div class="featured-collection__footer reveal">
+         <a href="{{ featured.url }}" class="btn btn--secondary">{{ 'featured_collection.view_all' | t: title: featured.title }}</a>
+       </div>
+     {%- endif -%}
+   {%- else -%}
+-    <p class="featured-collection__empty">{{ 'featured_collection.empty' | t }}</p>
++    {%- assign lineup_handles = 'nourishing-cleanser,daily-hydration-gel,glow-drops-serum,airy-sun-fluid-spf-50,restorative-night-cream,balancing-toner,body-lotion,body-oil,eau-de-parfum' | split: ',' -%}
++    <ul class="product-grid featured-collection__lineup" role="list">
++      {%- for lineup_handle in lineup_handles -%}
++        {%- assign handle_key = lineup_handle | replace: '-', '_' -%}
++        {%- assign title_key = 'lineup.' | append: handle_key | append: '.title' -%}
++        {%- assign price_key = 'lineup.' | append: handle_key | append: '.price' -%}
++        <li>
++          <article class="product-card">
++            <a href="{{ routes.root_url }}products/{{ lineup_handle }}" class="product-card__link">
++              <div class="product-card__image-wrap">
++                {%- render 'product-asset', handle: lineup_handle, class: 'product-card__image', loading: 'lazy' -%}
++              </div>
++              <div class="product-card__body">
++                <h3 class="product-card__title">{{ title_key | t }}</h3>
++                <p class="product-card__price">{{ price_key | t }}</p>
++              </div>
++            </a>
++          </article>
++        </li>
++      {%- endfor -%}
++    </ul>
+   {%- endif -%}
+ </section>
+ 
+ {% schema %}
+ {
+   "name": "Featured collection",
+   "settings": [
+     {
+       "type": "text",
+       "id": "title",
+diff --git a/theme/sections/main-product.liquid b/theme/sections/main-product.liquid
+index 3267b88..4764c54 100644
+--- a/theme/sections/main-product.liquid
++++ b/theme/sections/main-product.liquid
+@@ -13,21 +13,28 @@
+         <img
+           id="ProductMainImage-{{ section.id }}"
+           src="{{ product.featured_image | image_url: width: 1200 }}"
+           alt="{{ product.featured_image.alt | escape }}"
+           class="product__image"
+           loading="eager"
+           width="1200"
+           height="{{ 1200 | divided_by: product.featured_image.aspect_ratio | round }}"
+         >
+       {%- else -%}
+-        {{ 'product-1' | placeholder_svg_tag: 'product__image' }}
++        {%- capture product_asset_markup -%}
++          {%- render 'product-asset', product: product, class: 'product__image', loading: 'eager' -%}
++        {%- endcapture -%}
++        {%- if product_asset_markup != blank -%}
++          {{ product_asset_markup }}
++        {%- else -%}
++          {{ 'product-1' | placeholder_svg_tag: 'product__image' }}
++        {%- endif -%}
+       {%- endif -%}
+     </div>
+ 
+     {%- if product.images.size > 1 -%}
+       <div class="product__thumbnails" role="list" aria-label="Product images">
+         {%- for image in product.images limit: 5 -%}
+           <button
+             class="product__thumb{% if forloop.first %} is-active{% endif %}"
+             type="button"
+             data-thumb-src="{{ image | image_url: width: 1200 }}"
+diff --git a/theme/snippets/product-card.liquid b/theme/snippets/product-card.liquid
+index ed97df3..89b282e 100644
+--- a/theme/snippets/product-card.liquid
++++ b/theme/snippets/product-card.liquid
+@@ -5,20 +5,27 @@ Renders a product card with image, title, price, and link.
+ {% render 'product-card', product: product %}
+ {% enddoc %}
+ 
+ {%- if product != blank -%}
+   <article class="product-card">
+     <a href="{{ product.url }}" class="product-card__link">
+       <div class="product-card__image-wrap">
+         {%- if product.featured_image -%}
+           {{ product.featured_image | image_url: width: 800 | image_tag: loading: 'lazy', alt: product.featured_image.alt, class: 'product-card__image' }}
+         {%- else -%}
+-          {{ 'product-1' | placeholder_svg_tag: 'product-card__placeholder' }}
++          {%- capture product_asset_markup -%}
++            {%- render 'product-asset', product: product, class: 'product-card__image', loading: 'lazy' -%}
++          {%- endcapture -%}
++          {%- if product_asset_markup != blank -%}
++            {{ product_asset_markup }}
++          {%- else -%}
++            {{ 'product-1' | placeholder_svg_tag: 'product-card__placeholder' }}
++          {%- endif -%}
+         {%- endif -%}
+       </div>
+       <div class="product-card__body">
+         <h3 class="product-card__title">{{ product.title | escape }}</h3>
+         <p class="product-card__price">{{ product.price | money }}</p>
+       </div>
+     </a>
+   </article>
+ {%- endif -%}
+diff --git a/theme/snippets/product-asset.liquid b/theme/snippets/product-asset.liquid
+new file mode 100644
+index 0000000..6949fa0
+--- /dev/null
++++ b/theme/snippets/product-asset.liquid
+@@ -0,0 +1,66 @@
++{% doc %}
++Renders a theme asset product still when the handle matches the Elora catalog.
++@param {product} [product] - Product whose handle is used for lookup
++@param {string} [handle] - Product handle when no product object is available
++@param {string} [class] - CSS class for the image element
++@param {string} [loading] - Image loading attribute
++@param {string} [alt] - Alt text override
++@example
++{% render 'product-asset', product: product, class: 'product-card__image' %}
++@example
++{% render 'product-asset', handle: 'glow-drops-serum', class: 'product-card__image' %}
++{% enddoc %}
++
++{%- liquid
++  assign product_handle = ''
++  if product != blank
++    assign product_handle = product.handle
++  elsif handle != blank
++    assign product_handle = handle
++  endif
++
++  assign asset_file = ''
++  case product_handle
++    when 'nourishing-cleanser'
++      assign asset_file = 'product-nourishing-cleanser.png'
++    when 'daily-hydration-gel'
++      assign asset_file = 'product-daily-hydration-gel.png'
++    when 'glow-drops-serum'
++      assign asset_file = 'product-glow-drops-serum.png'
++    when 'airy-sun-fluid-spf-50'
++      assign asset_file = 'product-airy-sun-fluid.png'
++    when 'restorative-night-cream'
++      assign asset_file = 'product-restorative-night-cream.png'
++    when 'balancing-toner'
++      assign asset_file = 'product-balancing-toner.png'
++    when 'body-lotion'
++      assign asset_file = 'product-body-lotion.png'
++    when 'body-oil'
++      assign asset_file = 'product-body-oil.png'
++    when 'eau-de-parfum'
++      assign asset_file = 'product-eau-de-parfum.png'
++  endcase
++
++  assign image_alt = alt
++  if image_alt == blank and product != blank
++    assign image_alt = product.title
++  endif
++  if image_alt == blank and handle != blank
++    assign handle_key = handle | replace: '-', '_'
++    assign title_key = 'lineup.' | append: handle_key | append: '.title'
++    assign image_alt = title_key | t
++  endif
++
++  assign image_loading = loading | default: 'lazy'
++-%}
++
++{%- if asset_file != blank -%}
++  <img
++    src="{{ asset_file | asset_url }}"
++    alt="{{ image_alt | escape }}"
++    class="{{ class }}"
++    loading="{{ image_loading }}"
++    width="800"
++    height="800"
++  >
++{%- endif -%}

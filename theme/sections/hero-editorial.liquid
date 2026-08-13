@@ -1,9 +1,26 @@
-<section class="hero" style="--hero-bg: {{ section.settings.bg_color }};">
+<section class="hero">
+  {%- assign hero_img_src = '' -%}
+  {%- if section.settings.image != blank -%}
+    {%- assign hero_img_src = section.settings.image | image_url: width: 2400 -%}
+  {%- elsif section.settings.fallback_asset != blank -%}
+    {%- assign hero_img_src = section.settings.fallback_asset | asset_url -%}
+  {%- endif -%}
+
+  {%- if hero_img_src != '' -%}
+    <div class="hero__bg" aria-hidden="true">
+      <img
+        src="{{ hero_img_src }}"
+        class="hero__bg-img"
+        loading="eager"
+        alt=""
+        width="1001"
+        height="941"
+      >
+    </div>
+  {%- endif -%}
+
   <div class="hero__inner page-width">
     <div class="hero__text">
-      {%- if section.settings.eyebrow != blank -%}
-        <p class="hero__eyebrow">{{ section.settings.eyebrow | escape }}</p>
-      {%- endif -%}
       {%- if section.settings.heading != blank -%}
         <h1 class="hero__heading reveal">{{ section.settings.heading }}</h1>
       {%- endif -%}
@@ -14,92 +31,131 @@
         <a href="{{ section.settings.cta_url }}" class="btn reveal reveal-delay-2">{{ section.settings.cta_label | escape }}</a>
       {%- endif -%}
     </div>
-    {%- if section.settings.image -%}
-      <div class="hero__image reveal reveal-delay-1">
-        {{ section.settings.image | image_url: width: 1000 | image_tag: loading: 'eager', class: 'hero__img', alt: section.settings.image.alt }}
-      </div>
-    {%- endif -%}
   </div>
 </section>
 
 {% stylesheet %}
   .hero {
-    background-color: var(--hero-bg, var(--color-porcelain));
-    background-image: radial-gradient(
-      ellipse 80% 60% at 65% 40%,
-      rgba(232, 207, 196, 0.45) 0%,
-      transparent 70%
-    );
-    padding: var(--spacing-2xl) 0 var(--spacing-section);
+    position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    background-color: #e6d0be;
+    min-height: calc(100dvh - var(--header-stack, 6.75rem));
+  }
+
+  .hero__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .hero__bg-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: right center;
+    display: block;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      var(--color-porcelain) 0%,
+      rgba(246, 239, 232, 0.7) 26%,
+      rgba(230, 208, 190, 0.18) 48%,
+      transparent 64%
+    );
   }
 
   .hero__inner {
-    display: grid;
-    gap: var(--spacing-xl);
+    position: relative;
+    z-index: 2;
+    width: min(1120px, calc(100% - var(--spacing-lg)));
+    margin-inline: auto;
+    padding: var(--spacing-xl) 0;
+    display: flex;
     align-items: center;
   }
 
-  @media (min-width: 768px) {
-    .hero__inner:has(.hero__image) {
-      grid-template-columns: 58fr 42fr;
-      gap: var(--spacing-2xl);
-    }
-  }
-
-  .hero__eyebrow {
-    margin: 0 0 var(--spacing-md);
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: 1rem;
-    letter-spacing: 0.01em;
-    color: var(--color-sage);
+  .hero__text {
+    max-width: min(28rem, 46%);
+    display: flex;
+    flex-direction: column;
   }
 
   .hero__heading,
   .hero__heading p {
     margin: 0;
     font-family: var(--font-display);
+    font-style: italic;
     font-weight: 400;
-    font-size: clamp(2.75rem, 6.5vw, 5.25rem);
-    line-height: 1.06;
+    font-size: clamp(2.5rem, 5vw, 4.6rem);
+    line-height: 1.08;
     letter-spacing: -0.03em;
     color: var(--color-ink);
-    text-wrap: balance;
   }
 
   .hero__body {
     margin-top: var(--spacing-md);
-    max-width: 44ch;
     color: var(--color-muted);
     line-height: 1.68;
-    font-size: 1.0625rem;
+    font-size: 1rem;
   }
 
-  .hero__body p {
-    margin: 0;
-  }
+  .hero__body p { margin: 0; }
 
   .hero .btn {
     margin-top: var(--spacing-lg);
+    align-self: flex-start;
   }
 
-  .hero__image {
-    position: relative;
+  .hero:not(:has(.hero__bg)) {
+    background-color: var(--color-porcelain);
+    background-image: linear-gradient(105deg, var(--color-porcelain) 30%, #EBC5AD 100%);
   }
 
-  .hero__img {
-    width: 100%;
-    aspect-ratio: 4 / 5;
-    object-fit: cover;
-    border-radius: var(--radius-lg);
-    background: var(--color-sand);
-    box-shadow: var(--shadow-lg);
+  .hero:not(:has(.hero__bg)) .hero__text {
+    max-width: 60%;
   }
 
-  @media (min-width: 768px) {
-    .hero__image {
-      margin-block: calc(-1 * var(--spacing-2xl));
+  .hero:not(:has(.hero__bg))::after { display: none; }
+
+  @media (max-width: 767px) {
+    .hero {
+      align-items: flex-start;
+    }
+
+    .hero__bg-img {
+      object-position: center bottom;
+    }
+
+    .hero::after {
+      background: linear-gradient(
+        180deg,
+        var(--color-porcelain) 0%,
+        rgba(246, 239, 232, 0.78) 34%,
+        rgba(230, 208, 190, 0.12) 58%,
+        transparent 76%
+      );
+    }
+
+    .hero__inner {
+      padding: var(--spacing-xl) 0 46vh;
+    }
+
+    .hero__text {
+      max-width: 100%;
+    }
+
+    .hero__heading,
+    .hero__heading p {
+      font-size: clamp(2.25rem, 10vw, 3.25rem);
     }
   }
 {% endstylesheet %}
@@ -107,6 +163,7 @@
 {% schema %}
 {
   "name": "Hero editorial",
+  "class": "section-hero",
   "settings": [
     {
       "type": "text",
@@ -139,6 +196,12 @@
       "type": "image_picker",
       "id": "image",
       "label": "Image"
+    },
+    {
+      "type": "text",
+      "id": "fallback_asset",
+      "label": "Fallback asset filename",
+      "info": "Theme asset filename, e.g. lp-hero.png"
     },
     {
       "type": "color",

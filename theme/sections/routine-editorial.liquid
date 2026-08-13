@@ -10,6 +10,9 @@
           {%- if block.settings.moment != blank -%}
             <span class="routine-editorial__moment">{{ block.settings.moment | escape }}</span>
           {%- endif -%}
+          {%- if block.settings.sub_heading != blank -%}
+            <p class="routine-editorial__sub-heading">{{ block.settings.sub_heading | escape }}</p>
+          {%- endif -%}
           {%- if block.settings.heading != blank -%}
             <h3 class="routine-editorial__heading">{{ block.settings.heading | escape }}</h3>
           {%- endif -%}
@@ -26,9 +29,13 @@
             {% render 'product-card', product: block.settings.product %}
           {%- endif -%}
         </div>
-        {%- if block.settings.image -%}
+        {%- if block.settings.image != blank or block.settings.fallback_asset != blank -%}
           <div class="routine-editorial__image">
-            {{ block.settings.image | image_url: width: 640 | image_tag: class: 'routine-editorial__img', alt: block.settings.image.alt, loading: 'lazy' }}
+            {%- if block.settings.image != blank -%}
+              {{ block.settings.image | image_url: width: 640 | image_tag: class: 'routine-editorial__img', alt: block.settings.image.alt, loading: 'lazy' }}
+            {%- else -%}
+              <img src="{{ block.settings.fallback_asset | asset_url }}" class="routine-editorial__img" loading="lazy" alt="">
+            {%- endif -%}
           </div>
         {%- endif -%}
       </article>
@@ -48,8 +55,9 @@
     font-family: var(--font-display);
     font-style: italic;
     font-size: 1.0625rem;
-    color: var(--color-sage);
+    color: var(--color-ink);
     letter-spacing: 0.01em;
+    border: none;
   }
 
   .routine-editorial__inner {
@@ -62,30 +70,38 @@
     gap: var(--spacing-lg);
     align-items: center;
     padding: var(--spacing-xl) 0;
-    border-top: 1px solid var(--color-sand);
-  }
-
-  .routine-editorial__step:last-child {
-    border-bottom: 1px solid var(--color-sand);
+    border: none;
   }
 
   @media (min-width: 768px) {
     .routine-editorial__step:has(.routine-editorial__image) {
       grid-template-columns: 1fr 1fr;
+      gap: var(--spacing-2xl);
     }
 
-    .routine-editorial__step:nth-child(even) .routine-editorial__image {
+    .routine-editorial__step:nth-of-type(even) .routine-editorial__image {
       order: -1;
     }
   }
 
   .routine-editorial__moment {
-    display: inline-block;
-    margin-bottom: var(--spacing-md);
+    display: block;
+    margin-bottom: 0.35rem;
     font-family: var(--font-display);
     font-style: italic;
-    font-size: 0.9375rem;
-    letter-spacing: 0.01em;
+    font-size: clamp(2.25rem, 4vw, 2.85rem);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+  }
+
+  .routine-editorial__sub-heading {
+    margin: 0 0 var(--spacing-md);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
     color: var(--color-sage);
   }
 
@@ -115,23 +131,31 @@
     font-size: 0.875rem;
     letter-spacing: 0.04em;
     color: var(--color-ink);
-    text-decoration: underline;
-    text-underline-offset: 0.25em;
-    text-decoration-thickness: 1px;
+    text-decoration: none;
     transition: color var(--transition-fast);
+  }
+
+  .routine-editorial__cta::after {
+    content: ' \2192';
   }
 
   .routine-editorial__cta:hover {
     color: var(--color-sage);
   }
 
+  .routine-editorial__image {
+    overflow: hidden;
+  }
+
   .routine-editorial__img {
     width: 100%;
     aspect-ratio: 4 / 5;
     object-fit: cover;
-    border-radius: var(--radius-lg);
+    object-position: center;
+    border-radius: 0;
     background: var(--color-sand);
-    box-shadow: var(--shadow-md);
+    box-shadow: none;
+    display: block;
   }
 
   .routine-editorial__text .product-card {
@@ -163,6 +187,12 @@
         },
         {
           "type": "text",
+          "id": "sub_heading",
+          "label": "Sub-heading",
+          "placeholder": "Awaken. Protect. Glow."
+        },
+        {
+          "type": "text",
           "id": "heading",
           "label": "Heading"
         },
@@ -188,6 +218,12 @@
           "label": "Image"
         },
         {
+          "type": "text",
+          "id": "fallback_asset",
+          "label": "Fallback asset filename",
+          "info": "Theme asset filename, e.g. lp-asset2.png"
+        },
+        {
           "type": "product",
           "id": "product",
           "label": "Featured product"
@@ -203,6 +239,7 @@
           "type": "step",
           "settings": {
             "moment": "AM - Face",
+            "sub_heading": "Awaken. Protect. Glow.",
             "heading": "Morning light",
             "body": "<p>A quiet start. Cleanse, then a veil of moisture before the day begins.</p>",
             "cta_label": "Shop AM Essentials"
@@ -212,6 +249,7 @@
           "type": "step",
           "settings": {
             "moment": "PM - Body",
+            "sub_heading": "Unwind. Restore. Nourish.",
             "heading": "Skin still warm",
             "body": "<p>Oil, mist, a lingering close scent. The body ritual.</p>",
             "cta_label": "Shop PM Essentials"

@@ -1,0 +1,72 @@
+{% doc %}
+Renders a theme asset product still when the handle matches the Elora catalog.
+@param {product} [product] - Product whose handle is used for lookup
+@param {string} [handle] - Product handle when no product object is available
+@param {string} [class] - CSS class for the image element
+@param {string} [loading] - Image loading attribute
+@param {string} [alt] - Alt text override
+@example
+{% render 'product-asset', product: product, class: 'product-card__image' %}
+@example
+{% render 'product-asset', handle: 'glow-drops-serum', class: 'product-card__image' %}
+{% enddoc %}
+
+{%- liquid
+  assign product_handle = ''
+  if product != blank
+    assign product_handle = product.handle
+  elsif handle != blank
+    assign product_handle = handle
+  endif
+
+  assign asset_file = ''
+  case product_handle
+    when 'nourishing-cleanser'
+      assign asset_file = 'product-nourishing-cleanser.png'
+    when 'daily-hydration-gel'
+      assign asset_file = 'product-daily-hydration-gel.png'
+    when 'glow-drops-serum'
+      assign asset_file = 'product-glow-drops-serum.png'
+    when 'airy-sun-fluid-spf-50'
+      assign asset_file = 'product-airy-sun-fluid.png'
+    when 'restorative-night-cream'
+      assign asset_file = 'product-restorative-night-cream.png'
+    when 'balancing-toner'
+      assign asset_file = 'product-balancing-toner.png'
+    when 'body-lotion'
+      assign asset_file = 'product-body-lotion.png'
+    when 'body-oil'
+      assign asset_file = 'product-body-oil.png'
+    when 'eau-de-parfum'
+      assign asset_file = 'product-eau-de-parfum.png'
+    when 'soft-bloom'
+      assign asset_file = 'product-soft-bloom.png'
+    when 'warm-skin'
+      assign asset_file = 'product-warm-skin.png'
+    when 'bare-linen'
+      assign asset_file = 'product-bare-linen.png'
+  endcase
+
+  assign image_alt = alt
+  if image_alt == blank and product != blank
+    assign image_alt = product.title
+  endif
+  if image_alt == blank and handle != blank
+    assign handle_key = handle | replace: '-', '_'
+    assign title_key = 'lineup.' | append: handle_key | append: '.title'
+    assign image_alt = title_key | t
+  endif
+
+  assign image_loading = loading | default: 'lazy'
+-%}
+
+{%- if asset_file != blank -%}
+  <img
+    src="{{ asset_file | asset_url }}"
+    alt="{{ image_alt | escape }}"
+    class="{{ class }}"
+    loading="{{ image_loading }}"
+    width="800"
+    height="800"
+  >
+{%- endif -%}

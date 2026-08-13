@@ -3,8 +3,17 @@
     <h2 class="featured-collection__title reveal">{{ section.settings.title | escape }}</h2>
   {%- endif -%}
 
-  {%- assign featured = section.settings.collection -%}
-  {%- if featured != blank -%}
+  {%- liquid
+    assign featured = section.settings.collection
+    if featured == blank
+      assign featured = collections['skincare-essentials']
+    endif
+    if featured == blank or featured.products.size == 0
+      assign featured = collections['all']
+    endif
+  -%}
+
+  {%- if featured != blank and featured.products.size > 0 -%}
     <ul class="product-grid" role="list">
       {%- for product in featured.products limit: section.settings.products_to_show -%}
         <li>{% render 'product-card', product: product %}</li>
@@ -16,7 +25,27 @@
       </div>
     {%- endif -%}
   {%- else -%}
-    <p class="featured-collection__empty">{{ 'featured_collection.empty' | t }}</p>
+    {%- assign lineup_handles = 'nourishing-cleanser,daily-hydration-gel,glow-drops-serum,airy-sun-fluid-spf-50,restorative-night-cream,balancing-toner,body-lotion,body-oil,eau-de-parfum' | split: ',' -%}
+    <ul class="product-grid featured-collection__lineup" role="list">
+      {%- for lineup_handle in lineup_handles -%}
+        {%- assign handle_key = lineup_handle | replace: '-', '_' -%}
+        {%- assign title_key = 'lineup.' | append: handle_key | append: '.title' -%}
+        {%- assign price_key = 'lineup.' | append: handle_key | append: '.price' -%}
+        <li>
+          <article class="product-card">
+            <a href="{{ routes.root_url }}products/{{ lineup_handle }}" class="product-card__link">
+              <div class="product-card__image-wrap">
+                {%- render 'product-asset', handle: lineup_handle, class: 'product-card__image', loading: 'lazy' -%}
+              </div>
+              <div class="product-card__body">
+                <h3 class="product-card__title">{{ title_key | t }}</h3>
+                <p class="product-card__price">{{ price_key | t }}</p>
+              </div>
+            </a>
+          </article>
+        </li>
+      {%- endfor -%}
+    </ul>
   {%- endif -%}
 </section>
 
@@ -42,7 +71,7 @@
       "min": 2,
       "max": 12,
       "step": 1,
-      "default": 8
+      "default": 9
     }
   ],
   "presets": [

@@ -1,0 +1,11 @@
+query ProductVariants {
+  productByIdentifier(identifier: { handle: "daily-hydration-gel" }) {
+    title
+    variants(first: 2) {
+      nodes {
+        id
+        title
+      }
+    }
+  }
+}

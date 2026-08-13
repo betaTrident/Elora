@@ -1,12 +1,17 @@
 {% doc %}
-Renders the Elora wordmark and tagline for header and footer.
+Renders the Elora wordmark and optional tagline for header and footer.
+@param {boolean} [compact] - Hide the tagline when true
 @example
 {% render 'brand-lockup' %}
+@example
+{% render 'brand-lockup', compact: true %}
 {% enddoc %}
 
-<a href="{{ routes.root_url }}" class="brand-lockup" aria-label="Elora - Your everyday beauty ritual.">
+<a href="{{ routes.root_url }}" class="brand-lockup{% if compact %} brand-lockup--compact{% endif %}" aria-label="Elora - Your everyday beauty ritual.">
   <span class="brand-lockup__name">Elora</span>
-  <span class="brand-lockup__tagline">Your everyday beauty ritual.</span>
+  {%- unless compact -%}
+    <span class="brand-lockup__tagline">Your everyday beauty ritual.</span>
+  {%- endunless -%}
 </a>
 
 {% stylesheet %}

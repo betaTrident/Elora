@@ -1,6 +1,14 @@
 <section class="collection page-width">
   <div class="collection__header">
-    <h1 class="collection__title">{{ collection.title | escape }}</h1>
+    <h1 class="collection__title">
+      {%- if section.settings.heading != blank -%}
+        {{ section.settings.heading | escape }}
+      {%- elsif collection.handle == 'all' -%}
+        Elora essentials
+      {%- else -%}
+        {{ collection.title | escape }}
+      {%- endif -%}
+    </h1>
     {%- if section.settings.subline != blank -%}
       <p class="collection__subline">{{ section.settings.subline | escape }}</p>
     {%- elsif collection.description != blank -%}
@@ -8,22 +16,120 @@
     {%- endif -%}
   </div>
 
-  <div class="collection__filters">
-    <div class="collection__filter-chips">
-      <span class="collection__filter-label">Filter:</span>
-      <button class="collection__filter-chip" type="button">Skin Concern</button>
-      <button class="collection__filter-chip" type="button">Product Type</button>
-      <button class="collection__filter-chip" type="button">Brand</button>
-    </div>
-    <div class="collection__sort">
-      <label for="CollectionSort" class="visually-hidden">Sort by</label>
-      <select id="CollectionSort" class="collection__sort-select">
-        <option value="featured">Sort: Featured</option>
-        <option value="best-selling">Best Selling</option>
-        <option value="price-ascending">Price: Low to High</option>
-        <option value="price-descending">Price: High to Low</option>
-        <option value="newest">Newest</option>
-      </select>
+  {%- liquid
+    assign sort_by = collection.sort_by | default: collection.default_sort_by
+    assign all_url = routes.all_products_collection_url | append: '?sort_by=' | append: sort_by
+    if collections.face != blank
+      assign face_url = collections.face.url | sort_by: sort_by
+    else
+      assign face_url = routes.collections_url | append: '/face'
+    endif
+    if collections.body != blank
+      assign body_url = collections.body.url | sort_by: sort_by
+    else
+      assign body_url = routes.collections_url | append: '/body'
+    endif
+    if collections['scent-wardrobe'] != blank
+      assign scent_url = collections['scent-wardrobe'].url | sort_by: sort_by
+    else
+      assign scent_url = routes.collections_url | append: '/scent-wardrobe'
+    endif
+    if collections.sets != blank
+      assign sets_url = collections.sets.url | sort_by: sort_by
+    else
+      assign sets_url = routes.collections_url | append: '/sets'
+    endif
+    assign scent_current = false
+    if collection.handle == 'scent-wardrobe' or collection.handle == 'soft-bloom' or collection.handle == 'warm-skin' or collection.handle == 'bare-linen'
+      assign scent_current = true
+    endif
+  -%}
+  <div class="collection__toolbar">
+    <nav class="collection__scopes" aria-label="{{ 'collections.shop' | t }}">
+      <span class="collection__toolbar-label">{{ 'collections.shop' | t }}</span>
+      <ul class="collection__scope-list">
+        <li>
+          <a
+            href="{{ all_url }}"
+            class="collection__scope{% if collection.handle == 'all' %} is-active{% endif %}"
+            {% if collection.handle == 'all' %}aria-current="page"{% endif %}
+          >
+            {{ 'collections.all' | t }}
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ face_url }}"
+            class="collection__scope{% if collection.handle == 'face' %} is-active{% endif %}"
+            {% if collection.handle == 'face' %}aria-current="page"{% endif %}
+          >
+            {{ 'header.face' | t }}
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ body_url }}"
+            class="collection__scope{% if collection.handle == 'body' %} is-active{% endif %}"
+            {% if collection.handle == 'body' %}aria-current="page"{% endif %}
+          >
+            {{ 'header.body' | t }}
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ scent_url }}"
+            class="collection__scope{% if scent_current %} is-active{% endif %}"
+            {% if scent_current %}aria-current="page"{% endif %}
+          >
+            {{ 'header.scent' | t }}
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ sets_url }}"
+            class="collection__scope{% if collection.handle == 'sets' %} is-active{% endif %}"
+            {% if collection.handle == 'sets' %}aria-current="page"{% endif %}
+          >
+            {{ 'header.sets' | t }}
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="collection__toolbar-end">
+      {%- assign current_sort_label = '' -%}
+      {%- for option in collection.sort_options -%}
+        {%- if option.value == sort_by -%}
+          {%- assign current_sort_label = option.name -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- if current_sort_label == blank and collection.sort_options.first -%}
+        {%- assign current_sort_label = collection.sort_options.first.name -%}
+      {%- endif -%}
+
+      <details class="sort-dropdown" data-sort-dropdown>
+        <summary class="sort-dropdown__trigger">
+          <span class="collection__toolbar-label">{{ 'collections.sort' | t }}</span>
+          <span class="sort-dropdown__value">{{ current_sort_label | escape }}</span>
+          <svg class="sort-dropdown__chevron" width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden="true">
+            <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </summary>
+        <ul class="sort-dropdown__menu" role="list">
+          {%- for option in collection.sort_options -%}
+            <li>
+              <a
+                href="{{ collection.url }}?sort_by={{ option.value }}"
+                class="sort-dropdown__option{% if option.value == sort_by %} is-selected{% endif %}"
+                {% if option.value == sort_by %}aria-current="true"{% endif %}
+              >
+                {{ option.name | escape }}
+              </a>
+            </li>
+          {%- endfor -%}
+        </ul>
+      </details>
+      <p class="collection__count">{{ 'collections.products_count' | t: count: collection.all_products_count }}</p>
     </div>
   </div>
 
@@ -36,7 +142,7 @@
       </ul>
       <div class="collection__pagination">{{ paginate | default_pagination }}</div>
     {%- else -%}
-      <p class="collection__empty">{{ section.settings.no_results_subline | default: 'collections.empty' | t }}</p>
+      <p class="collection__empty">{{ 'collections.empty' | t }}</p>
     {%- endif -%}
   {% endpaginate %}
 </section>
@@ -50,14 +156,15 @@
   "settings": [
     {
       "type": "text",
-      "id": "subline",
-      "label": "Subline",
-      "default": "Curated formulas for face, body, and mind. Minimal ingredients. Maximum intention."
+      "id": "heading",
+      "label": "Heading",
+      "info": "Overrides the collection title when set."
     },
     {
       "type": "text",
-      "id": "no_results_subline",
-      "label": "No results text"
+      "id": "subline",
+      "label": "Subline",
+      "default": "Curated formulas for face, body, and mind. Minimal ingredients. Maximum intention."
     }
   ],
   "presets": [

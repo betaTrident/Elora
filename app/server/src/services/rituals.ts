@@ -171,7 +171,7 @@ export async function createRitual(shop: ShopContext, input: CreateRitualBody) {
 
     await logActivity(tx, {
       shopId: shop.shopId,
-      actorType: 'merchant',
+      actorType: shop.userId ? 'merchant' : 'system',
       actorId: shop.userId ?? undefined,
       action: 'ritual.created',
       entityType: 'ritual',

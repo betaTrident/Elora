@@ -81,3 +81,40 @@
   - 11B: hero-editorial, ingredient-honesty, routine-editorial, scent-wardrobe; index.json order without builder (Phase 12)
   - validate.mjs: leftover RemoteAsset on mandated Google Fonts; theme check exit 0
   - Minor (deferred): featured collection empty until merchant assigns; variant price/media not live; empty main-menu still outputs nav; mobile cart price grid; image alt fallbacks; prefers-reduced-motion; hero h1 wraps richtext p; routine products empty until picked; heading skip in routine editorial; fonts.gstatic preconnect
+
+## Phase 12 — Soft Ritual Builder
+
+- In progress on `feat/p11-shopify-elora-theme` (in-place; Phase 11 already committed)
+- Task 12A: complete (no commits, review Approved after hidden/display fix)
+  - Liquid section + schema + locales + index.json order `hero, builder, editorial, ingredients, scent, featured`
+  - Fix: `.ritual-builder__result:not([hidden])` so `hidden` is not overridden
+  - ⚠️ resolved by controller: cart still renders `Elora Ritual` in `main-cart.liquid` (unchanged)
+  - Minor (deferred): incomplete prefers-reduced-motion on restart hover; heading typography duplicated; theme-check Google Fonts noise (pre-existing)
+- Task 12B: complete (no commits, review Approved)
+  - `theme/assets/ritual-builder.js` + defer load in `theme.liquid`
+  - Multi-instance init, tag AND-filter + fallback 3, DOM-safe cards, `/cart/add.js` with `Elora Ritual`
+  - ⚠️ Ajax not live-tested in this environment (controller: code matches `/cart/add.js` contract; cart property rendering confirmed in 11A)
+  - Minor (deferred): in-flight add still redirects after Restart; `shopify:section:load` not bound; `showResult` assumes 12A nodes
+- Whole-phase review: Approved after two JS guards
+  - Click-through: 400ms `advancing` lock + current-step membership
+  - Restart-during-add: generation token + AbortController + cleared redirect timeout
+  - Ready to merge: Yes (work still uncommitted; user forbade commits unless asked)
+
+## Phase 13 — Seed Data & Demo Script
+
+- In progress on `feat/p11-shopify-elora-theme` (in-place)
+- Task 13A: complete (no commits, review Approved)
+  - 9 `theme/assets/product-*.png` + `product-asset.liquid` handle map
+  - product-card / main-product featured_image fallback; featured-collection empty = 9-card lineup
+  - ⚠️ ChatGPT (1)–(9) → SKU mapping claimed in report; binaries not byte-compared
+  - Minor (deferred): 9th card widow in 4-col grid; dead `featured_collection.empty`; `product-asset` prefers ambient `product` over passed `handle`; large unresized PNGs
+- Task 13B: complete (no commits, review Approved after process.exit fix)
+  - Catalog 9 SKUs + 3 rituals; GraphQL find-or-create; createRitual; README demo (Glow Drops Serum)
+  - `write_products` on toml + auth; `npm run db:seed`
+  - Fix: process.exit(0/1) so CLI does not hang on mysql2 pool
+  - Minor (deferred): GraphQL 401 message mentions write_products; unpublished/unstocked catalog; archived title skip; unordered first shop
+- Whole-phase review: Approved after demo-path fixes
+  - Untracked inventory (null qty) scores in-stock; 0 stays OOS
+  - Builder falls back to `collections['all']`; README seeds before the 8 steps; AM Glow tagged `scent:clean`
+  - Ready to merge: Yes (work still uncommitted; user forbade commits unless asked)
+  - Catalog tests 11/11; graphql tests 4/4; tsc clean

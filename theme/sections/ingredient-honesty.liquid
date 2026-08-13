@@ -4,15 +4,12 @@
       <h2 class="ingredient-honesty__heading reveal">{{ section.settings.heading | escape }}</h2>
     {%- endif -%}
 
-    {%- assign in_blocks = section.blocks | where: 'settings.type', 'in' -%}
-    {%- assign never_blocks = section.blocks | where: 'settings.type', 'never' -%}
-
     <div class="ingredient-honesty__cols">
       <div class="ingredient-honesty__col">
         <span class="ingredient-honesty__col-label">What's in.</span>
         <ul class="ingredient-honesty__list" role="list">
-          {%- for block in in_blocks -%}
-            {%- if block.settings.ingredient != blank -%}
+          {%- for block in section.blocks -%}
+            {%- if block.settings.type == 'in' and block.settings.ingredient != blank -%}
               <li {{ block.shopify_attributes }}>{{ block.settings.ingredient | escape }}</li>
             {%- endif -%}
           {%- endfor -%}
@@ -22,8 +19,8 @@
       <div class="ingredient-honesty__col">
         <span class="ingredient-honesty__col-label">What's never in.</span>
         <ul class="ingredient-honesty__list" role="list">
-          {%- for block in never_blocks -%}
-            {%- if block.settings.ingredient != blank -%}
+          {%- for block in section.blocks -%}
+            {%- if block.settings.type == 'never' and block.settings.ingredient != blank -%}
               <li {{ block.shopify_attributes }}>{{ block.settings.ingredient | escape }}</li>
             {%- endif -%}
           {%- endfor -%}
@@ -44,24 +41,34 @@
     font-size: clamp(1.6rem, 3.2vw, 2.5rem);
     line-height: 1.15;
     letter-spacing: -0.02em;
+    text-align: center;
   }
 
   .ingredient-honesty__cols {
     display: grid;
     grid-template-columns: 1fr;
-    gap: var(--spacing-xl);
+    gap: var(--spacing-md);
   }
 
   @media (min-width: 600px) {
     .ingredient-honesty__cols {
       grid-template-columns: 1fr 1fr;
-      gap: var(--spacing-2xl);
+      gap: var(--spacing-md);
     }
+  }
+
+  .ingredient-honesty__col {
+    border: 1px solid var(--color-sand);
+    border-radius: var(--radius-sm);
+    padding: 1.25rem 1.5rem;
+    background: var(--color-porcelain);
   }
 
   .ingredient-honesty__col-label {
     display: block;
-    margin-bottom: var(--spacing-md);
+    margin-bottom: 0.2rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--color-sand);
     font-size: 0.75rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -76,15 +83,15 @@
   }
 
   .ingredient-honesty__list li {
-    padding: 0.55rem 0;
+    padding: 0.6rem 0;
     font-size: 1.0625rem;
     color: var(--color-ink);
     border-bottom: 1px solid var(--color-sand);
     line-height: 1.4;
   }
 
-  .ingredient-honesty__list li:first-child {
-    border-top: 1px solid var(--color-sand);
+  .ingredient-honesty__list li:last-child {
+    border-bottom: none;
   }
 {% endstylesheet %}
 

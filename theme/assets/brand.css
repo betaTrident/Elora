@@ -21,10 +21,10 @@
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
-  --spacing-lg: 32px;
-  --spacing-xl: 64px;
-  --spacing-2xl: 96px;
-  --spacing-section: 120px;
+  --spacing-lg: 24px;
+  --spacing-xl: 48px;
+  --spacing-2xl: 64px;
+  --spacing-section: 72px;
 
   /* Radius - deliberate 3-tier */
   --radius-xs: 2px;
@@ -48,6 +48,9 @@
   /* Z-index scale */
   --z-header: 100;
   --z-skip: 1000;
+
+  /* Announcement + sticky header. Keep next homepage section below the fold. */
+  --header-stack: 6.75rem;
 }
 
 body {
