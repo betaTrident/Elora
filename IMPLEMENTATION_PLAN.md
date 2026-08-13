@@ -63,8 +63,8 @@ Repo folder: `elora/`. Theme shop name in `settings_schema.json` / locales: Elor
 | 12 — Soft Ritual Builder | **DONE** |
 | 13 — Seed Data & Demo Script | **DONE** |
 | 14 — Testing | **DONE** |
-| 15 — Security & Polish | NOT STARTED |
-| 16 — Documentation & Deliverables | NOT STARTED |
+| 15 — Security & Polish | **DONE** |
+| 16 — Documentation & Deliverables | **DONE** |
 
 ---
 
@@ -2405,7 +2405,7 @@ seed()
 - [ ] Resolve alert → goes to resolved state in activity
 - [x] Theme: Ritual Builder completes 3 steps and adds to cart
 - [x] Cart shows ritual property on line items
-- [ ] README setup from scratch takes < 30 minutes (Phase 16)
+- [x] README setup from scratch takes < 30 minutes (Phase 16)
 
 ### Commands
 ```bash
@@ -2423,7 +2423,7 @@ Automated unit and Supertest rows in the tables above are covered. `npm run test
 
 ## Phase 15 — Security & Polish
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### Security checklist
 
@@ -2455,13 +2455,15 @@ Automated unit and Supertest rows in the tables above are covered. `npm run test
 
 ---
 
-**End of Phase 15 — NOT STARTED**
+**End of Phase 15 — DONE**
+
+Uninstall now soft-deletes the shop (`uninstalledAt` + empty `accessToken`) and re-exchange runs on the next session if the shop was uninstalled. HMAC, JWT HS256/audience, shop-scoped queries, Zod, Drizzle, dual-host CSP, and `.env.example` were already in place and kept. Admin polish: mutation toasts, Ritual form Save Bar when dirty, Dashboard alert Resolve, load Retry, and stacked builder cards below 480px. `npm run build` succeeds; pre-existing Vite CJS/chunk-size notices remain. Live `app/uninstalled` subscription stays commented for localhost `shopify app dev`.
 
 ---
 
 ## Phase 16 — Documentation & Deliverables
 
-> **Status:** NOT STARTED
+> **Status:** DONE
 
 ### `README.md` structure
 ```markdown
@@ -2517,7 +2519,9 @@ cd app/server && npx tsx src/db/seed.ts
 
 ---
 
-**End of Phase 16 — NOT STARTED**
+**End of Phase 16 — DONE**
+
+`README.md` is a < 30 minute setup guide (clone, env, Docker MySQL, migrate, `shopify app dev`, optional Vite, theme preview, `npm run db:seed`) plus the 5-minute demo. `APP_DECISIONS.md` covers Store Concept, App Idea, Architecture/Schema (8 tables + Health Score formula matching `calculateHealthScore`), Tradeoffs, and future work. Seed copy is 12 Elora SKUs.
 
 ---
 
@@ -2562,9 +2566,9 @@ Use this before submission.
 - [ ] No hardcoded secrets
 
 ### Documentation
-- [ ] `README.md` enables fresh setup in < 30 min
-- [ ] `APP_DECISIONS.md` covers all 5 sections
-- [ ] `APP_DECISIONS.md` includes Health Score formula
+- [x] `README.md` enables fresh setup in < 30 min
+- [x] `APP_DECISIONS.md` covers all 5 sections
+- [x] `APP_DECISIONS.md` includes Health Score formula
 
 ---
 
@@ -2583,5 +2587,5 @@ Use this before submission.
 
 ---
 
-> **Next step:** Phase 0–14 are **DONE**. Continue at **Phase 15 — Security & Polish**.
+> **Next step:** Phases 0–16 are **DONE**. Use the [Verification Checklist](#verification-checklist) before submission.
 > Update the Phase progress table and each phase **Status** / **End of Phase** line as work completes.

@@ -24,12 +24,12 @@ export async function verifySessionToken(token: string): Promise<ShopContext> {
   const shopDomain = parseShopDomain(dest)
 
   const [shop] = await db
-    .select({ id: shops.id })
+    .select({ id: shops.id, uninstalledAt: shops.uninstalledAt })
     .from(shops)
     .where(eq(shops.shopDomain, shopDomain))
     .limit(1)
 
-  if (!shop) {
+  if (!shop || shop.uninstalledAt != null) {
     const { shopId } = await exchangeAndUpsertShop(shopDomain, token)
     return { shopDomain, shopId, userId: (payload.sub as string) ?? null }
   }

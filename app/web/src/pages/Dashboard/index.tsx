@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Banner, BlockStack, Grid, Layout, SkeletonBodyText, SkeletonPage } from '@shopify/polaris'
+import {
+  Banner,
+  BlockStack,
+  Grid,
+  Layout,
+  SkeletonBodyText,
+  SkeletonPage,
+  Toast,
+} from '@shopify/polaris'
 import { PageLayout } from '../../components/PageLayout'
 import { EmptyState } from '../../components/EmptyState'
 import { AlertBanner } from '../../components/AlertBanner'
@@ -17,6 +25,8 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
   const [alertsError, setAlertsError] = useState<Error | null>(null)
+  const [resolveError, setResolveError] = useState<Error | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
 
   function fetchAlerts() {
     setAlertsError(null)
@@ -44,6 +54,19 @@ export function Dashboard() {
     fetchDashboard()
     fetchAlerts()
   }, [])
+
+  async function handleResolveAlert(id: string) {
+    setResolveError(null)
+    try {
+      await api.post(`/api/alerts/${id}/resolve`, {})
+      setAlerts((current) => current.filter((alert) => alert.id !== id))
+      setToast('Alert resolved')
+    } catch (error: unknown) {
+      setResolveError(
+        error instanceof Error ? error : new Error('Failed to resolve alert.'),
+      )
+    }
+  }
 
   if (loading) {
     return (
@@ -113,7 +136,12 @@ export function Dashboard() {
               <p>{alertsError.message}</p>
             </Banner>
           )}
-          <AlertBanner alerts={alerts} />
+          {resolveError && (
+            <Banner tone="critical" title="Could not resolve alert">
+              <p>{resolveError.message}</p>
+            </Banner>
+          )}
+          <AlertBanner alerts={alerts} onResolve={(id) => void handleResolveAlert(id)} />
           <Layout>
             <Layout.Section>
               <KpiCards counts={data.counts} />
@@ -131,6 +159,7 @@ export function Dashboard() {
           </Layout>
         </BlockStack>
       </div>
+      {toast && <Toast content={toast} onDismiss={() => setToast(null)} />}
     </PageLayout>
   )
 }

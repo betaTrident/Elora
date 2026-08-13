@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Banner,
   BlockStack,
@@ -6,8 +6,10 @@ import {
   SkeletonBodyText,
   SkeletonPage,
   TextField,
+  Toast,
 } from '@shopify/polaris'
-import { useNavigate, useParams } from 'react-router-dom'
+import { SaveBar } from '@shopify/app-bridge-react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { PageLayout } from '../../../components/PageLayout'
 import { ScoreBadge } from '../../../components/ScoreBadge'
 import { ScoreBreakdown } from '../../../components/ScoreBreakdown'
@@ -27,24 +29,63 @@ interface ScoreDisplay {
   breakdown: ScoreBreakdownType
 }
 
+interface FormSnapshot {
+  title: string
+  description: string
+  scoreThreshold: string
+  components: RitualDetail['components']
+}
+
+interface RitualFormLocationState {
+  toast?: string
+  scoreDisplay?: ScoreDisplay
+}
+
+const EMPTY_SNAPSHOT: FormSnapshot = {
+  title: '',
+  description: '',
+  scoreThreshold: '70',
+  components: [],
+}
+
+function captureSnapshot(
+  title: string,
+  description: string,
+  scoreThreshold: string,
+  components: RitualDetail['components'],
+): FormSnapshot {
+  return {
+    title,
+    description,
+    scoreThreshold,
+    components: components.map((component) => ({ ...component })),
+  }
+}
+
 export function RitualForm() {
   const { id } = useParams<{ id?: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const isEdit = Boolean(id)
   const pageTitle = isEdit ? 'Edit routine' : 'Create routine'
+  const locationState = location.state as RitualFormLocationState | null
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [scoreThreshold, setScoreThreshold] = useState('70')
   const [components, setComponents] = useState<RitualDetail['components']>([])
+  const [snapshot, setSnapshot] = useState<FormSnapshot>(EMPTY_SNAPSHOT)
   const [loading, setLoading] = useState(isEdit)
   const [submitting, setSubmitting] = useState(false)
   const [recalculating, setRecalculating] = useState(false)
   const [loadError, setLoadError] = useState<Error | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
-  const [scoreDisplay, setScoreDisplay] = useState<ScoreDisplay | null>(null)
+  const [scoreDisplay, setScoreDisplay] = useState<ScoreDisplay | null>(
+    locationState?.scoreDisplay ?? null,
+  )
+  const [toast, setToast] = useState<string | null>(locationState?.toast ?? null)
 
-  useEffect(() => {
+  const fetchRitual = useCallback(() => {
     if (!id) return
 
     setLoading(true)
@@ -52,16 +93,48 @@ export function RitualForm() {
     api
       .get<RitualDetail>(`/api/rituals/${id}`)
       .then((ritual) => {
-        setTitle(ritual.title)
-        setDescription(ritual.description ?? '')
-        setScoreThreshold(String(ritual.scoreThreshold))
-        setComponents(ritual.components)
+        const nextTitle = ritual.title
+        const nextDescription = ritual.description ?? ''
+        const nextThreshold = String(ritual.scoreThreshold)
+        const nextComponents = ritual.components
+        setTitle(nextTitle)
+        setDescription(nextDescription)
+        setScoreThreshold(nextThreshold)
+        setComponents(nextComponents)
+        setSnapshot(
+          captureSnapshot(
+            nextTitle,
+            nextDescription,
+            nextThreshold,
+            nextComponents,
+          ),
+        )
       })
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error : new Error(String(error))),
       )
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    fetchRitual()
+  }, [id, fetchRitual])
+
+  const isDirty = useMemo(
+    () =>
+      JSON.stringify(
+        captureSnapshot(title, description, scoreThreshold, components),
+      ) !== JSON.stringify(snapshot),
+    [title, description, scoreThreshold, components, snapshot],
+  )
+
+  function handleDiscard() {
+    setTitle(snapshot.title)
+    setDescription(snapshot.description)
+    setScoreThreshold(snapshot.scoreThreshold)
+    setComponents(snapshot.components.map((component) => ({ ...component })))
+  }
 
   async function handleSubmit() {
     setValidationError(null)
@@ -93,13 +166,18 @@ export function RitualForm() {
         ? await api.put<RitualSaveResponse>(`/api/rituals/${id}`, body)
         : await api.post<RitualSaveResponse>('/api/rituals', body)
 
-      setScoreDisplay({
+      const nextScore: ScoreDisplay = {
         score: result.score,
         threshold: result.threshold,
         breakdown: result.breakdown,
-      })
+      }
+      setScoreDisplay(nextScore)
+      setToast('Routine saved')
+      setSnapshot(captureSnapshot(title, description, scoreThreshold, components))
       if (!isEdit) {
-        navigate(`/rituals/${result.id}/edit`)
+        navigate(`/rituals/${result.id}/edit`, {
+          state: { toast: 'Routine saved', scoreDisplay: nextScore },
+        })
       }
     } catch (error: unknown) {
       setValidationError(
@@ -154,7 +232,8 @@ export function RitualForm() {
         <Banner
           tone="critical"
           title="Routine failed to load"
-          action={{ content: 'Back to routines', url: '/rituals' }}
+          action={{ content: 'Retry', onAction: () => fetchRitual() }}
+          secondaryAction={{ content: 'Back to routines', url: '/rituals' }}
         >
           <p>{loadError.message}</p>
         </Banner>
@@ -182,6 +261,18 @@ export function RitualForm() {
           : undefined
       }
     >
+      <SaveBar id="ritual-form-save-bar" open={isDirty}>
+        <button
+          type="button"
+          variant="primary"
+          onClick={() => void handleSubmit()}
+        >
+          Save
+        </button>
+        <button type="button" onClick={handleDiscard}>
+          Discard
+        </button>
+      </SaveBar>
       <div aria-live="polite" aria-atomic="true">
         <BlockStack gap="400">
           {scoreDisplay && (
@@ -231,6 +322,7 @@ export function RitualForm() {
           <ComponentList components={components} onChange={setComponents} />
         </BlockStack>
       </div>
+      {toast && <Toast content={toast} onDismiss={() => setToast(null)} />}
     </PageLayout>
   )
 }

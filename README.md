@@ -1,16 +1,149 @@
-# Elora
+# Elora + RitualScore
+
+**Elora** is a Shopify OS 2.0 theme for everyday beauty rituals. **RitualScore** is the embedded Shopify Admin app that scores product rituals, tracks inventory risk, and surfaces alerts.
+
+## Prerequisites
+
+- Node.js 20+
+- Docker Desktop
+- Shopify Partner account + development store
+- Shopify CLI: `npm install -g @shopify/cli@latest`
+
+## Setup (< 30 minutes)
+
+### 1. Clone & install
+
+```bash
+git clone <repo-url> elora
+cd elora
+npm install
+```
+
+Workspaces: `app/server` (Express API) and `app/web` (Vite + React).
+
+### 2. Configure environment
+
+Copy `.env.example` to `.env` at the **repo root** and again at `app/server/.env`. The server loads env from the process working directory (`dotenv/config`).
+
+```bash
+cp .env.example .env
+cp .env.example app/server/.env
+```
+
+Fill in these values (from your Partner app in the Shopify Partner Dashboard — never paste real secrets or the live `client_id` from `app/shopify.app.toml` into docs or commits):
+
+| Variable | Description |
+|----------|-------------|
+| `SHOPIFY_API_KEY` | Partner app API key |
+| `SHOPIFY_API_SECRET` | Partner app API secret |
+| `SHOPIFY_APP_URL` | App URL (CLI tunnel URL during dev) |
+| `VITE_SHOPIFY_API_KEY` | Same value as `SHOPIFY_API_KEY` |
+| `DATABASE_URL` | Default: `mysql://ritual:ritual@localhost:3306/ritual_score` |
+| `PORT` | Default: `3000` |
+
+### 3. Start database
+
+```bash
+docker compose up -d
+```
+
+Starts MySQL 8 on port 3306 — database `ritual_score`, user `ritual` / password `ritual`.
+
+Steps 4–8 assume you are at the **repo root** (open a new terminal or `cd` back after step 4).
+
+### 4. Run migrations
+
+```bash
+cd app/server
+npm run db:migrate
+```
+
+### 5. Start app
+
+```bash
+cd app
+shopify app dev
+```
+
+`app/shopify.app.toml` plus `app/server/shopify.web.toml` and `app/web/shopify.web.toml` tell the CLI to start **both backend and frontend**.
+
+- Default `shopify app dev` uses the CLI tunnel (required for webhooks that need a public URI).
+- `--use-localhost` skips the tunnel; webhooks that require a public URI will not subscribe.
+
+### 6. Start frontend (separate terminal)
+
+**Optional** when using `shopify app dev` from `app/` — the CLI already runs `app/web` (`npm run dev`, Vite on port 5173, proxying `/api` and `/health` to port 3000).
+
+Only use a separate terminal if you are running the Express server yourself:
+
+```bash
+cd app/server
+npm run dev
+```
+
+Then in another terminal:
+
+```bash
+cd app/web
+npm run dev
+```
+
+### 7. Push theme
+
+```bash
+cd theme
+shopify theme dev --store <your-store>.myshopify.com
+```
+
+Elora is a Shopify OS 2.0 Liquid theme.
+
+### 8. Seed demo data (optional)
+
+```bash
+cd app/server
+npm run db:seed
+```
+
+Requires the app already installed on a shop (otherwise you will see "Install app first"). If seed reports missing `write_products`, reinstall the app so Shopify grants that scope.
+
+Seeds 12 Elora SKUs and 3 sample rituals (including AM Glow Ritual / Glow Drops Serum).
+
+## Architecture
+
+Elora is the customer-facing storefront theme; RitualScore is the merchant-facing embedded Admin app. The Express API persists shop, product, ritual, score, and alert data in MySQL via Drizzle ORM. The Vite + React frontend uses Polaris and App Bridge, talks to the API through Shopify session auth, and is served alongside the backend during `shopify app dev`.
+
+See [APP_DECISIONS.md](./APP_DECISIONS.md) for product rationale, schema design, scoring formula, and tradeoffs.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Theme | Shopify Liquid OS 2.0 |
+| App frontend | Vite 5 + React 19 + TypeScript |
+| App UI | Shopify Polaris 13 + App Bridge |
+| App backend | Express + Node.js 20 + TypeScript |
+| ORM / DB | Drizzle 0.36 + mysql2 + MySQL 8 (Docker) |
+| Validation | Zod |
+| Auth | JWT + `@shopify/shopify-api` |
+| Routing (FE) | React Router 6 |
+| Dev tooling | Shopify CLI |
+| Testing | Vitest + Supertest |
+| Linting | ESLint |
 
 ## 5-minute demo script
 
 Reinstall the app so Shopify grants `write_products`, then seed:
 
-`cd app/server; npm run db:seed`
+```bash
+cd app/server
+npm run db:seed
+```
 
 1. Open app in Admin — see Dashboard with 3 sample rituals
 2. Note "AM Glow Ritual" score and breakdown
 3. In Shopify Admin → Products, set Glow Drops Serum inventory to 0
 4. Back in RitualScore → AM Glow Ritual → click Recalculate
 5. Score drops — Critical alert appears: "Out of stock"
-6. Open Activity log — see score.recalculated + alert.opened events
+6. Open Activity log — see `score.recalculated` + `alert.opened` events
 7. On storefront Home, click "Build your soft ritual" → complete steps → Add ritual to bag
 8. Cart shows all 3 items with "Elora Ritual: glow · am · clean" property

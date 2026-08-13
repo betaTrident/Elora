@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AppProvider } from '@shopify/polaris'
 import enTranslations from '@shopify/polaris/locales/en.json'
@@ -8,6 +9,7 @@ import type { ReactNode } from 'react'
 vi.mock('../../../services/api', () => ({
   api: {
     get: vi.fn(),
+    post: vi.fn(),
   },
 }))
 
@@ -19,6 +21,7 @@ import { Dashboard } from '../index'
 import { api } from '../../../services/api'
 
 const mockGet = api.get as ReturnType<typeof vi.fn>
+const mockPost = api.post as ReturnType<typeof vi.fn>
 
 function Wrapper({ children }: { children: ReactNode }) {
   return (
@@ -104,6 +107,37 @@ describe('Dashboard', () => {
     })
     render(<Dashboard />, { wrapper: Wrapper })
     expect(await screen.findByText(alertMessage)).toBeTruthy()
+  })
+
+  it('resolves an alert when Resolve is clicked', async () => {
+    const user = userEvent.setup()
+    const alertMessage = 'Routine score 45 is below threshold 70'
+    mockGet.mockImplementation((path: string) => {
+      if (path === '/api/dashboard') return Promise.resolve(fullData)
+      if (path === '/api/alerts')
+        return Promise.resolve([
+          {
+            id: 'a1',
+            ritualId: 'r1',
+            type: 'low_score',
+            severity: 'warning',
+            message: alertMessage,
+            status: 'open',
+            createdAt: new Date().toISOString(),
+          },
+        ])
+      return Promise.reject(new Error(`unexpected path: ${path}`))
+    })
+    mockPost.mockResolvedValueOnce({})
+
+    render(<Dashboard />, { wrapper: Wrapper })
+    expect(await screen.findByText(alertMessage)).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: 'Resolve' }))
+
+    expect(mockPost).toHaveBeenCalledWith('/api/alerts/a1/resolve', {})
+    expect(await screen.findByText('Alert resolved')).toBeTruthy()
+    expect(screen.queryByText(alertMessage)).toBeNull()
   })
 
   it('does not show alert message when /api/alerts returns empty array', async () => {

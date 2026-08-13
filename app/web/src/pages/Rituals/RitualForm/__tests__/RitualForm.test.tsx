@@ -16,6 +16,13 @@ vi.mock('../../../../services/api', () => ({
 
 vi.mock('@shopify/app-bridge-react', () => ({
   TitleBar: () => null,
+  SaveBar: ({
+    open,
+    children,
+  }: {
+    open?: boolean
+    children?: ReactNode
+  }) => (open ? <div data-testid="save-bar">{children}</div> : null),
 }))
 
 import { RitualForm } from '../index'
@@ -86,7 +93,7 @@ describe('RitualForm', () => {
     render(<RitualForm />, { wrapper: NewWrapper })
 
     await user.type(screen.getByLabelText('Routine title'), 'Morning kit')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save' })[0])
 
     expect(mockPost).not.toHaveBeenCalled()
     expect(mockPut).not.toHaveBeenCalled()
@@ -121,6 +128,153 @@ describe('RitualForm', () => {
     expect(await screen.findByText(/Availability — 40\/50/)).toBeTruthy()
     expect(screen.getByText(/Completeness — 15\/20/)).toBeTruthy()
     expect(screen.getByText(/Margin — 20\/30/)).toBeTruthy()
+    expect(screen.getByText('Routine saved')).toBeTruthy()
+  })
+
+  it('shows Routine saved toast and score banner after create', async () => {
+    const user = userEvent.setup()
+    Object.defineProperty(globalThis, 'shopify', {
+      value: {
+        idToken: async () => 'test-token',
+        resourcePicker: async () => [
+          {
+            id: 'gid://shopify/Product/1',
+            title: 'Cleanser',
+            variants: [{ id: 'v1' }],
+          },
+        ],
+      },
+      configurable: true,
+    })
+    mockPost.mockResolvedValueOnce(sampleSaveResponse)
+    mockGet.mockResolvedValueOnce({
+      id: 'ritual-1',
+      title: 'Morning kit',
+      description: '',
+      scoreThreshold: 70,
+      status: 'active',
+      lastScore: 75,
+      components: [
+        {
+          shopifyProductId: 'gid://shopify/Product/1',
+          shopifyVariantId: 'v1',
+          role: 'cleanse',
+          quantity: 1,
+          productTitleCache: 'Cleanser',
+        },
+      ],
+    })
+
+    render(<RitualForm />, { wrapper: NewWrapper })
+
+    await user.type(screen.getByLabelText('Routine title'), 'Morning kit')
+    await user.click(screen.getByRole('button', { name: 'Add product' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save' })[0])
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/api/rituals',
+      expect.objectContaining({ title: 'Morning kit' }),
+    )
+    expect(await screen.findByText('Routine saved')).toBeTruthy()
+    expect(await screen.findByText(/Availability — 40\/50/)).toBeTruthy()
+  })
+
+  it('shows the save bar when the form is dirty and discard restores the snapshot', async () => {
+    const user = userEvent.setup()
+    mockGet.mockResolvedValueOnce({
+      id: 'ritual-1',
+      title: 'Morning kit',
+      description: '',
+      scoreThreshold: 70,
+      status: 'active',
+      lastScore: 75,
+      components: [
+        {
+          shopifyProductId: 'p1',
+          role: 'cleanse',
+          quantity: 1,
+          productTitleCache: 'Cleanser',
+        },
+      ],
+    })
+
+    render(<RitualForm />, { wrapper: EditWrapper })
+
+    await screen.findByDisplayValue('Morning kit')
+    expect(screen.queryByTestId('save-bar')).toBeNull()
+
+    const titleField = screen.getByLabelText('Routine title')
+    await user.clear(titleField)
+    await user.type(titleField, 'Evening kit')
+
+    expect(screen.getByTestId('save-bar')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Discard' }))
+
+    expect(screen.getByDisplayValue('Morning kit')).toBeTruthy()
+    expect(screen.queryByTestId('save-bar')).toBeNull()
+  })
+
+  it('hides the save bar after a successful save', async () => {
+    const user = userEvent.setup()
+    mockGet.mockResolvedValueOnce({
+      id: 'ritual-1',
+      title: 'Morning kit',
+      description: '',
+      scoreThreshold: 70,
+      status: 'active',
+      lastScore: 75,
+      components: [
+        {
+          shopifyProductId: 'p1',
+          role: 'cleanse',
+          quantity: 1,
+          productTitleCache: 'Cleanser',
+        },
+      ],
+    })
+    mockPut.mockResolvedValueOnce(sampleSaveResponse)
+
+    render(<RitualForm />, { wrapper: EditWrapper })
+
+    await screen.findByDisplayValue('Morning kit')
+    await user.type(screen.getByLabelText('Routine title'), ' updated')
+    expect(screen.getByTestId('save-bar')).toBeTruthy()
+
+    await user.click(screen.getAllByRole('button', { name: 'Save' })[0])
+
+    expect(await screen.findByText('Routine saved')).toBeTruthy()
+    expect(screen.queryByTestId('save-bar')).toBeNull()
+  })
+
+  it('retries loading the routine when Retry is clicked', async () => {
+    const user = userEvent.setup()
+    mockGet
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce({
+        id: 'ritual-1',
+        title: 'Morning kit',
+        description: '',
+        scoreThreshold: 70,
+        status: 'active',
+        lastScore: 75,
+        components: [
+          {
+            shopifyProductId: 'p1',
+            role: 'cleanse',
+            quantity: 1,
+            productTitleCache: 'Cleanser',
+          },
+        ],
+      })
+
+    render(<RitualForm />, { wrapper: EditWrapper })
+
+    expect(await screen.findByText('Routine failed to load')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+
+    expect(await screen.findByDisplayValue('Morning kit')).toBeTruthy()
+    expect(mockGet).toHaveBeenCalledTimes(2)
+    expect(mockGet).toHaveBeenNthCalledWith(2, '/api/rituals/ritual-1')
   })
 
   it('shows Recalculate on edit form and POSTs recalculate endpoint', async () => {

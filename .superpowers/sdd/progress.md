@@ -130,3 +130,36 @@
   - DONE_WITH_CONCERNS: spy shape matches real `{ score, breakdown }`; isolation is service 404 not a second JWT
 - Manual QA: token 401, builder→cart, ritual line property verified; Admin click-through + README 30 min deferred to Phase 16
 - Ready to merge: storefront templates also shipped this session (search, 404, list-collections, customers, CMS pages, live theme push)
+
+## Phase 15 — Security & Polish
+
+- Task 15A: complete (no commits; review Approved)
+  - Implementer: Composer 2.5 ([15A security](83998ffb-d48c-4233-a287-127ba171225c))
+  - Reviewer: Grok 4.6 high fast ([15A review](c5dcbe48-bdba-4abd-83ab-acf283d6d2f5))
+  - `softDeleteShop` on uninstall; re-exchange when `uninstalledAt` set; CSP test on `/health`
+  - ⚠️ resolved by controller: dual-host CSP still in `index.ts` (`admin.shopify.com` + `*.myshopify.com`)
+  - Minor (deferred): header `string | string[]`; no-domain uninstall skip; header-first path untested
+- Task 15B: complete (no commits; review Approved)
+  - Implementer: Grok 4.6 high fast ([15B polish](cd725a93-9824-4ac8-81d1-567290295118))
+  - Reviewer: Composer 2.5 ([15B review](8285b93f-13dd-40b1-9ad3-324db0a53352))
+  - Toasts (saved/archived/resolved), SaveBar dirty/discard, Dashboard Resolve, form Retry, builder 1-col ≤479px
+  - Web 29/29; `npm run build` succeeded
+  - ⚠️ Vite CJS / chunk-size / outDir notices pre-exist; global “no warnings” not fully met
+  - Minor (deferred): create→edit skeleton flash; duplicate Save when dirty; JSON.stringify dirty check
+- Whole-phase: both task reviews Approved, no Critical/Important. Ready to merge Phase 15 (uncommitted).
+- Next: Phase 16 — README + APP_DECISIONS.md
+
+## Phase 16 — Documentation & Deliverables
+
+- Task 16A: complete (no commits; review Approved after SKU-count fix)
+  - Implementer: Composer 2.5 ([16A README](c2722588-3210-44c3-a586-52886b0da5b9))
+  - Reviewer: Grok 4.6 high fast ([16A review](5dd19fca-3f47-4d9e-aa11-08d3721dd708) → re-review [16A re-review](57973dd4-5b3a-4edd-9110-c82fc05e3cfd))
+  - Full README: setup 1–8, dual `.env`, `shopify app dev` runs both processes, seed `npm run db:seed`, demo script kept
+  - Important fix: seed catalog **12** SKUs (not 9); repo-root note for steps 4–8
+- Task 16B: complete (no commits; review Approved)
+  - Implementer: Grok 4.6 high fast ([16B APP_DECISIONS](76cb6d17-ca9d-4162-9e1c-7c2a14a2bb39))
+  - Reviewer: Composer 2.5 ([16B review](93a117bf-857c-4504-8705-8ad82f37c8f2))
+  - Five sections + formula matching `calculateHealthScore`; all four tradeoffs; all six future items
+  - Minor (deferred): `sessions` table exists in schema but is unused in current auth (JWT + `shops`); doc describes intended role
+- Whole-phase: both Approved. Ready to merge Phase 16 (uncommitted).
+- Plan: Phases 0–16 DONE. Remaining work is the live Verification Checklist, not a new phase.

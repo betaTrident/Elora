@@ -7,6 +7,7 @@ import * as ritualsService from '../services/rituals'
 import * as activityService from '../services/activity'
 import * as alertsService from '../services/alerts'
 import * as settingsService from '../services/settings'
+import * as shopsService from '../services/shops'
 
 const TEST_API_KEY = 'test-api-key'
 const TEST_SECRET = 'test-secret'
@@ -59,7 +60,7 @@ function signToken(): string {
 }
 
 function authRequest(method: 'get' | 'post' | 'put', path: string) {
-  mockLimit.mockResolvedValueOnce([{ id: 'shop-id-1' }])
+  mockLimit.mockResolvedValueOnce([{ id: 'shop-id-1', uninstalledAt: null }])
   const token = signToken()
   return request(app)[method](path).set('Authorization', `Bearer ${token}`)
 }
@@ -275,6 +276,7 @@ describe('POST /webhooks/app/uninstalled', () => {
   })
 
   it('returns 200 for valid HMAC', async () => {
+    const softDeleteSpy = vi.spyOn(shopsService, 'softDeleteShop').mockResolvedValueOnce(undefined)
     const body = JSON.stringify({ shop_domain: 'test.myshopify.com' })
     const hmac = crypto.createHmac('sha256', TEST_SECRET).update(body).digest('base64')
     const res = await request(app)
@@ -284,6 +286,31 @@ describe('POST /webhooks/app/uninstalled', () => {
       .send(body)
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ ok: true })
+    expect(softDeleteSpy).toHaveBeenCalledWith('test.myshopify.com')
+  })
+
+  it('returns 200 for valid HMAC when shop is unknown', async () => {
+    vi.spyOn(shopsService, 'softDeleteShop').mockResolvedValueOnce(undefined)
+    const body = JSON.stringify({ shop_domain: 'unknown.myshopify.com' })
+    const hmac = crypto.createHmac('sha256', TEST_SECRET).update(body).digest('base64')
+    const res = await request(app)
+      .post('/webhooks/app/uninstalled')
+      .set('Content-Type', 'application/json')
+      .set('X-Shopify-Hmac-Sha256', hmac)
+      .send(body)
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ ok: true })
+    expect(shopsService.softDeleteShop).toHaveBeenCalledWith('unknown.myshopify.com')
+  })
+})
+
+describe('Content-Security-Policy', () => {
+  it('GET /health includes frame-ancestors with admin.shopify.com', async () => {
+    const res = await request(app).get('/health')
+    expect(res.status).toBe(200)
+    const csp = res.headers['content-security-policy']
+    expect(csp).toContain('frame-ancestors')
+    expect(csp).toContain('https://admin.shopify.com')
   })
 })
 

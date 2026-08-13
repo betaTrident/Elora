@@ -10,6 +10,7 @@ import {
   SkeletonBodyText,
   SkeletonPage,
   Text,
+  Toast,
 } from '@shopify/polaris'
 import { PageLayout } from '../../components/PageLayout'
 import { EmptyState } from '../../components/EmptyState'
@@ -26,6 +27,7 @@ export function Rituals() {
   const [error, setError] = useState<Error | null>(null)
   const [archiveTarget, setArchiveTarget] = useState<RitualListItem | null>(null)
   const [archiving, setArchiving] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   function fetchRituals() {
     setLoading(true)
@@ -53,6 +55,7 @@ export function Rituals() {
         current.filter((ritual) => ritual.id !== archiveTarget.id),
       )
       setArchiveTarget(null)
+      setToast('Routine archived')
     } catch (archiveError: unknown) {
       setError(
         archiveError instanceof Error
@@ -101,6 +104,7 @@ export function Rituals() {
           description="Create a routine kit to start tracking product health."
           action={{ content: 'Create routine', url: '/rituals/new' }}
         />
+        {toast && <Toast content={toast} onDismiss={() => setToast(null)} />}
       </PageLayout>
     )
   }
@@ -177,6 +181,7 @@ export function Rituals() {
           </Modal.Section>
         </Modal>
       </div>
+      {toast && <Toast content={toast} onDismiss={() => setToast(null)} />}
     </PageLayout>
   )
 }

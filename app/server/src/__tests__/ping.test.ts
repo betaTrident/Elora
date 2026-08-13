@@ -60,7 +60,7 @@ describe('GET /api/ping', () => {
   })
 
   it('returns 200 with shop domain when token is valid', async () => {
-    mockLimit.mockResolvedValueOnce([{ id: 'shop-id-1' }])
+    mockLimit.mockResolvedValueOnce([{ id: 'shop-id-1', uninstalledAt: null }])
 
     const token = jwt.sign(
       {
@@ -78,6 +78,41 @@ describe('GET /api/ping', () => {
 
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ shop: 'test-shop.myshopify.com' })
+  })
+
+  it('re-exchanges token when shop was uninstalled', async () => {
+    mockLimit
+      .mockResolvedValueOnce([{ id: 'shop-id-1', uninstalledAt: new Date('2026-01-01') }])
+      .mockResolvedValueOnce([{ id: 'shop-id-1' }])
+
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ access_token: 'new-offline-token' }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const token = jwt.sign(
+      {
+        aud: TEST_API_KEY,
+        dest: 'https://test-shop.myshopify.com',
+        sub: 'user-123',
+      },
+      TEST_SECRET,
+      { algorithm: 'HS256' },
+    )
+
+    const res = await request(app)
+      .get('/api/ping')
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ shop: 'test-shop.myshopify.com' })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://test-shop.myshopify.com/admin/oauth/access_token',
+      expect.objectContaining({ method: 'POST' }),
+    )
+
+    vi.unstubAllGlobals()
   })
 })
 
