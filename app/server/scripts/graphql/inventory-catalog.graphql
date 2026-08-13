@@ -1,0 +1,25 @@
+query InventoryCatalog {
+  locations(first: 10) {
+    nodes {
+      id
+    }
+  }
+  products(first: 50, query: "vendor:Elora") {
+    nodes {
+      id
+      handle
+      title
+      variants(first: 20) {
+        nodes {
+          id
+          title
+          inventoryQuantity
+          inventoryItem {
+            id
+            tracked
+          }
+        }
+      }
+    }
+  }
+}
