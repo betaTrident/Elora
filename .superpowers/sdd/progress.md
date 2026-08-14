@@ -163,3 +163,31 @@
   - Minor (deferred): `sessions` table exists in schema but is unused in current auth (JWT + `shops`); doc describes intended role
 - Whole-phase: both Approved. Ready to merge Phase 16 (uncommitted).
 - Plan: Phases 0–16 DONE. Remaining work is the live Verification Checklist, not a new phase.
+
+## Recently viewed (2026-08-14)
+
+- Task 1: complete (commits e57b7dc..b2c2560, review clean)
+  - Implementer: Composer 2.5 ([Task 1 storage](c7b57a51-dbc0-4b91-b1a5-cccf75a8ee5f))
+  - Reviewer: Composer 2.5 ([Task 1 review](cd198913-7f06-462a-9819-8b0eebe053c1))
+  - Minor (deferred): mojibake em dash in comment; no KEY/MAX export tests; upsert stores item by reference
+- Task 2: complete (commits b2c2560..3fe2524, review clean after fail-closed fix)
+  - Implementer: Composer 2.5 ([Task 2 cards](77064b3f-858f-4c71-b657-48128331b891))
+  - Fix: Composer 2.5 ([Task 2 fail-closed](5020ccd9-30da-459a-bb86-2a67eea5e90f))
+  - Re-review: Composer 2.5 Fast ([Task 2 re-review](d3490e56-1734-4762-b23a-8e858d0f9fcf))
+  - Minor (deferred): no positive init happy-path test; buildCard/render untested in Node
+- Task 3: complete (commits 3fe2524..c726b9a, review clean)
+  - Implementer: Grok 4.6 Fast ([Task 3 Liquid](0b76e941-5fe4-4167-b62c-7a8adcd4fc3e))
+  - Reviewer: Grok 4.6 Fast ([Task 3 review](3924afce-1da2-41db-a86d-7cc73cf1e428))
+  - Minor (deferred): nested section from schema tag + inner section
+- Task 4: complete (commits c726b9a..9b6c44f, review clean)
+  - Implementer: Composer 2.5 Fast ([Task 4 mount](b753715c-10fa-4b9e-8b15-9ab3c544630f))
+  - Reviewer: Composer 2.5 Fast ([Task 4 review](e93256b7-a188-48d8-ace9-09d9934be679))
+  - Minor (deferred): JS loads on every page via layout
+- Task 5: complete after Critical fix (QA re-run all 5 steps PASS)
+  - First QA: Grok 4.6 Fast ([Task 5 QA](bbc8bf8b-3d25-4d14-8474-f559591986e6)) — FAIL: `root.defaultView`
+  - Fix: Grok 4.6 Fast ([init defaultView](b5073541-aa7e-464e-ba7a-793dd6309ab0)) `86165ac`
+  - Fix review: Composer 2.5 Fast ([fix review](a1454f11-0ed4-4e84-a8a1-92d28938fd1b)) Approved
+  - Re-QA: Grok 4.6 Fast ([Task 5 re-QA](dd123f9f-eb91-4b2d-b97e-e3dc1719e43c)) — 5/5 PASS
+  - Image follow-up: Composer 2.5 Fast ([protocol-relative img](8873e104-0c9f-4ae6-a20a-e0c52aab7de1)) `18875e0`
+- Whole-branch: Grok 4.6 Fast ([branch review](8d1d6081-715c-4522-8f26-9962773cc22a)) Ready with fixes — Critical/Important landed
+- Tests: 12/12 `node --test theme/assets/recently-viewed.test.mjs`

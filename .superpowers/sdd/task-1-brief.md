@@ -1,231 +1,172 @@
-# Task 1: Phase 1 — Project Scaffold & Tooling
+﻿### Task 1: Storage helpers (TDD)
 
-Source: `k:\Elora\IMPLEMENTATION_PLAN.md` section **Phase 1 — Project Scaffold & Tooling**.
+**Files:**
+- Create: `theme/assets/recently-viewed.js`
+- Create: `theme/assets/recently-viewed.test.mjs`
 
-## Where this fits
+**Interfaces:**
+- Consumes: none
+- Produces: `EloraRecentlyViewed.MAX === 4`, `KEY === 'elora:recently-viewed'`, `upsert(list, item)`, `forDisplay(list, excludeHandle)`, `readList(storage)`, `writeList(storage, list)`
 
-Greenfield scaffold for Elora (store/theme) + RitualScore (embedded Admin app). Workspace root is `k:\Elora` — create files here, **not** in a nested `elora/` folder. Phase 0 is done (Shopify CLI 4.6.1, Docker Desktop running). Do **not** start Phase 2+ (no Drizzle schema files, no React pages, no theme).
+Snapshot item shape (all strings; empty string allowed for subtitle/image):
 
-## Goal
-
-A working monorepo skeleton with Docker MySQL, npm workspaces, TypeScript, linting, and a health-check endpoint.
-
-## Files to create (verbatim from the plan where code is given)
-
-### Root
-
-```
-package.json           # workspaces: ["app/server", "app/web"]
-.gitignore
-.env.example           # SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SHOPIFY_APP_URL, DATABASE_URL
-docker-compose.yml
-```
-
-**`docker-compose.yml`** (use this content; you MAY add a `healthcheck` on `mysql` so “container is healthy” can be verified, without changing image/env/ports/volume):
-
-```yaml
-services:
-  mysql:
-    image: mysql:8.0
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: ritual_score
-      MYSQL_USER: ritual
-      MYSQL_PASSWORD: ritual
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-volumes:
-  mysql_data:
-```
-
-**Root `package.json`:** npm workspaces `["app/server", "app/web"]`. Set `"private": true`. Name can be `elora`. Optional root scripts: `dev` is not required. A root `lint` script that runs ESLint in `app/server` is allowed.
-
-**`.gitignore` must include at least:** `node_modules`, `.env`, `dist`, `*.log`, OS junk (`.DS_Store`). Do not ignore `.env.example`.
-
-**`.env.example` placeholders:**
-
-```
-SHOPIFY_API_KEY=
-SHOPIFY_API_SECRET=
-SHOPIFY_APP_URL=
-DATABASE_URL=mysql://ritual:ritual@localhost:3306/ritual_score
-PORT=3000
-```
-
-Copy `.env.example` to `.env` locally so dotenv can load `PORT` / `DATABASE_URL`. `.env` must stay gitignored.
-
-### `app/server/package.json`
-
-```json
+```js
 {
-  "name": "ritualscore-server",
-  "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "test": "vitest"
-  },
-  "dependencies": {
-    "express": "^4",
-    "drizzle-orm": "^0.36",
-    "mysql2": "^3",
-    "zod": "^3",
-    "jsonwebtoken": "^9",
-    "@shopify/shopify-api": "latest",
-    "dotenv": "^16",
-    "cors": "^2"
-  },
-  "devDependencies": {
-    "tsx": "^4",
-    "typescript": "^5",
-    "drizzle-kit": "^0.27",
-    "vitest": "^2",
-    "supertest": "^7",
-    "@types/express": "*",
-    "@types/jsonwebtoken": "*",
-    "@types/cors": "*",
-    "eslint": "^9"
-  }
+  handle: 'glow-drops-serum',
+  url: '/products/glow-drops-serum',
+  title: 'Glow Drops Serum',
+  subtitle: 'Niacinamide + Kakadu Plum',
+  image: 'https://cdn.shopify.com/example.jpg',
+  price: '$52.00'
 }
 ```
 
-You MAY add `@types/node` (needed for `process.env`) and ESLint 9 companion packages required for TypeScript linting (`@eslint/js`, `typescript-eslint`). Do not add unrelated libraries.
+- [ ] **Step 1: Write the failing tests**
 
-### `app/web/package.json`
+Create `theme/assets/recently-viewed.test.mjs`:
 
-```json
-{
-  "name": "ritualscore-web",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19",
-    "react-dom": "^19",
-    "react-router-dom": "^6",
-    "@shopify/polaris": "^13",
-    "@shopify/app-bridge-react": "latest"
-  },
-  "devDependencies": {
-    "vite": "^5",
-    "@vitejs/plugin-react": "^4",
-    "typescript": "^5"
+```js
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import path from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+const dir = path.dirname(fileURLToPath(import.meta.url))
+await import(pathToFileURL(path.join(dir, 'recently-viewed.js')).href)
+const RV = globalThis.EloraRecentlyViewed
+
+function item(handle) {
+  return {
+    handle,
+    url: '/products/' + handle,
+    title: handle,
+    subtitle: '',
+    image: '',
+    price: '$1.00',
   }
 }
-```
 
-### `app/server/src/index.ts`
+test('upsert puts the item first and unique by handle', () => {
+  const a = RV.upsert([], item('a'))
+  const b = RV.upsert(a, item('b'))
+  const aAgain = RV.upsert(b, item('a'))
+  assert.deepEqual(aAgain.map((row) => row.handle), ['a', 'b'])
+})
 
-```typescript
-import express from 'express'
-import { config } from 'dotenv'
-config()
+test('upsert caps at MAX 4', () => {
+  let list = []
+  ;['a', 'b', 'c', 'd', 'e'].forEach((handle) => {
+    list = RV.upsert(list, item(handle))
+  })
+  assert.equal(list.length, 4)
+  assert.deepEqual(list.map((row) => row.handle), ['e', 'd', 'c', 'b'])
+})
 
-const app = express()
-app.use(express.json())
+test('forDisplay excludes the current handle', () => {
+  const list = [item('a'), item('b'), item('c')]
+  const shown = RV.forDisplay(list, 'a')
+  assert.deepEqual(shown.map((row) => row.handle), ['b', 'c'])
+})
 
-app.get('/health', (_req, res) => res.json({ ok: true }))
+test('readList returns [] for corrupt JSON', () => {
+  const storage = {
+    getItem() {
+      return '{not json'
+    },
+  }
+  assert.deepEqual(RV.readList(storage), [])
+})
 
-app.listen(process.env.PORT ?? 3000, () => {
-  console.log('Server ready')
+test('writeList no-throws when setItem throws', () => {
+  const storage = {
+    setItem() {
+      throw new Error('quota')
+    },
+  }
+  assert.doesNotThrow(() => RV.writeList(storage, [item('a')]))
 })
 ```
 
-### `app/server/drizzle.config.ts`
+- [ ] **Step 2: Run tests â€” expect FAIL**
 
-```typescript
-import { defineConfig } from 'drizzle-kit'
-export default defineConfig({
-  schema: './src/db/schema/*.ts',
-  out: './drizzle',
-  dialect: 'mysql',
-  dbCredentials: { url: process.env.DATABASE_URL! },
-})
+```
+Set-Location k:\Elora
+node --test theme/assets/recently-viewed.test.mjs
 ```
 
-### `app/web/vite.config.ts`
+Expected: FAIL (`EloraRecentlyViewed` undefined or functions missing).
 
-```typescript
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-export default defineConfig({
-  plugins: [react()],
-  server: { port: 5173, strictPort: true, host: 'localhost' },
-  build: { outDir: '../server/public' },
-})
+- [ ] **Step 3: Minimal implementation**
+
+Create `theme/assets/recently-viewed.js`:
+
+```js
+(function (root) {
+  var KEY = 'elora:recently-viewed'
+  var MAX = 4
+
+  function upsert(list, item) {
+    if (!item || typeof item.handle !== 'string' || !item.handle) return list.slice()
+    var next = [item].concat(list.filter(function (row) {
+      return row && row.handle !== item.handle
+    }))
+    return next.slice(0, MAX)
+  }
+
+  function forDisplay(list, excludeHandle) {
+    return list.filter(function (row) {
+      return row && row.handle && row.handle !== excludeHandle
+    })
+  }
+
+  function readList(storage) {
+    if (!storage || typeof storage.getItem !== 'function') return []
+    try {
+      var raw = storage.getItem(KEY)
+      if (!raw) return []
+      var parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch (err) {
+      return []
+    }
+  }
+
+  function writeList(storage, list) {
+    if (!storage || typeof storage.setItem !== 'function') return
+    try {
+      storage.setItem(KEY, JSON.stringify(list))
+    } catch (err) {
+      /* private mode / quota â€” fail closed */
+    }
+  }
+
+  root.EloraRecentlyViewed = {
+    KEY: KEY,
+    MAX: MAX,
+    upsert: upsert,
+    forDisplay: forDisplay,
+    readList: readList,
+    writeList: writeList,
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this)
 ```
 
-### `app/shopify.app.toml`
+- [ ] **Step 4: Run tests â€” expect PASS**
 
-```toml
-name = "RitualScore"
-client_id = "<SHOPIFY_API_KEY>"
-application_url = "https://<tunnel-url>"
-embedded = true
-
-[access_scopes]
-scopes = "read_products,read_inventory"
-
-[webhooks]
-api_version = "2025-01"
-
-  [[webhooks.subscriptions]]
-  topics = ["app/uninstalled"]
-  uri = "/webhooks/app/uninstalled"
+```
+Set-Location k:\Elora
+node --test theme/assets/recently-viewed.test.mjs
 ```
 
-Keep these values. If Shopify CLI schema requires extra fields for the file to be valid TOML, add only what the CLI requires and note it in the report. Do **not** run `shopify app init`. Do **not** replace placeholders with real secrets.
+Expected: `5 passed`.
 
-## Implied files (required by Done when; not listed as code in the plan)
+- [ ] **Step 5: Commit**
 
-Create these so TypeScript and ESLint can actually run:
-
-- `app/server/tsconfig.json` — strict, `rootDir` `src`, `outDir` `dist`, include `src`, module/moduleResolution suitable for Node + tsx (NodeNext or Node16 is fine). `noEmit` false so `npm run build` works.
-- `app/web/tsconfig.json` — `jsx: react-jsx`, include `src`. You may add an empty `app/web/src/.gitkeep` or a one-line placeholder so `include` is valid; do **not** build the Phase 5 React app (`App.tsx`, pages, Polaris shell).
-- `app/server/eslint.config.js` (ESLint 9 flat config) covering `src/**/*.ts`. Must pass on the health-check server file.
-
-Do **not** create `app/server/src/db/migrate.ts` (Phase 2). Leaving the `db:migrate` script in package.json is correct.
-
-## Commands (must run)
-
-```bash
-npm install                    # from k:\Elora
-docker compose up -d           # start MySQL
-cd app/server && npm run dev   # server health check
-# then GET http://localhost:3000/health
+```
+Set-Location k:\Elora
+git add theme/assets/recently-viewed.js theme/assets/recently-viewed.test.mjs
+git commit -m "feat: add recently viewed storage helpers"
 ```
 
-Also run:
+---
 
-- `cd app/server && npx tsc --noEmit` (or `npm run build`)
-- ESLint on the server (must pass)
-- Confirm MySQL container is healthy (`docker compose ps` / `mysqladmin ping` inside the container)
-
-Host port **3306 is free**. Node is **v22.17.0** (plan says Node 20; 22 is acceptable).
-
-If `npm run dev` is a long-running watcher, start it, curl `/health`, then stop it. Do not leave a stray node process.
-
-## Done when
-
-- `GET /health` returns `{ ok: true }`
-- MySQL container is healthy
-- TypeScript compiles with no errors
-- ESLint passes
-
-## Constraints
-
-- Do **not** commit, `git init`, or change git config. The controller owns git.
-- Do **not** edit `IMPLEMENTATION_PLAN.md`.
-- Do **not** overbuild: no README, no APP_DECISIONS, no theme, no schema, no React UI.
-- Follow the file structure and the provided file contents.
-- Work from `k:\Elora`.
-- Windows PowerShell: use `Invoke-WebRequest` or `curl.exe` (not the curl alias) for the health check.
-
-## Report
-
-Write the full report to `k:\Elora\.superpowers\sdd\task-1-report.md`.

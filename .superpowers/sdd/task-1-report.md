@@ -1,182 +1,85 @@
-# Task 1 Report: Phase 1 — Project Scaffold & Tooling
+# Task 1 Report: Storage helpers (TDD)
 
-## Status
+## What was implemented
 
-DONE
+Pure localStorage list helpers for the recently-viewed storefront feature, exposed as `globalThis.EloraRecentlyViewed`:
 
-## What Was Implemented
+| Export | Value / behavior |
+|--------|------------------|
+| `KEY` | `'elora:recently-viewed'` |
+| `MAX` | `4` |
+| `upsert(list, item)` | Prepends item, dedupes by `handle`, caps at `MAX`; returns a new array (no mutation) |
+| `forDisplay(list, excludeHandle)` | Filters out the current product handle |
+| `readList(storage)` | Reads/parses JSON from storage; returns `[]` on missing/invalid data |
+| `writeList(storage, list)` | Serializes list to storage; swallows quota/private-mode errors |
 
-Greenfield monorepo scaffold at `k:\Elora` per the task brief:
+Implementation is an IIFE attaching to `globalThis` (or `this` fallback), suitable for Shopify theme asset loading in Task 2+.
 
-### Root
-- `package.json` — npm workspaces `["app/server", "app/web"]`, `private: true`, root `lint` script
-- `.gitignore` — `node_modules`, `.env`, `dist`, `*.log`, OS junk
-- `.env.example` — Shopify and database placeholders with `PORT=3000`
-- `.env` — copied from `.env.example` for local dotenv (gitignored)
-- `docker-compose.yml` — MySQL 8.0 with `ritual_score` database, port 3306, volume, and `healthcheck`
+## What was tested and test results
 
-### `app/server`
-- `package.json` — verbatim from brief plus `@types/node`, `@eslint/js`, `typescript-eslint`, and `lint` script
-- `src/index.ts` — Express server with `GET /health` returning `{ ok: true }`
-- `drizzle.config.ts` — Drizzle Kit config (schema path for Phase 2)
-- `tsconfig.json` — strict, `rootDir: src`, `outDir: dist`, NodeNext
-- `eslint.config.js` — ESLint 9 flat config for `src/**/*.ts`
+Five Node test-runner tests in `theme/assets/recently-viewed.test.mjs`:
 
-### `app/web`
-- `package.json` — verbatim from brief
-- `vite.config.ts` — port 5173, build to `../server/public`
-- `tsconfig.json` — `jsx: react-jsx`, includes `src`
-- `src/.gitkeep` — placeholder so `include` is valid (no Phase 5 React UI)
+1. **upsert puts the item first and unique by handle** — re-inserting `a` moves it to front; `b` remains.
+2. **upsert caps at MAX 4** — five inserts yield `['e','d','c','b']`.
+3. **forDisplay excludes the current handle** — `'a'` excluded from `['a','b','c']`.
+4. **readList returns [] for corrupt JSON** — malformed string does not throw.
+5. **writeList no-throws when setItem throws** — quota error swallowed.
 
-### `app/shopify.app.toml`
-- RitualScore app config with placeholder `client_id` and `application_url`, scopes, webhook subscription
+**GREEN result:** `5 passed`, `0 failed` (Node v22.17.0).
 
-No Phase 2+ artifacts created (no schema, migrate.ts, React pages, theme, README).
+## TDD Evidence
 
-## Verification
+### RED (before implementation)
 
-### `npm install`
-
-```powershell
-cd k:\Elora
-npm install --legacy-peer-deps
+```
+Set-Location k:\Elora
+node --test theme/assets/recently-viewed.test.mjs
 ```
 
-**Result:** Success (381 packages). Required `--legacy-peer-deps` because `@shopify/polaris@13` peers `react@^18` while the brief specifies `react@^19`. See Concerns.
-
-### Docker MySQL
-
-```powershell
-docker compose up -d
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'K:\\Elora\\theme\\assets\\recently-viewed.js'
+...
+# tests 1
+# pass 0
+# fail 1
 ```
 
-**Result:** Container `elora-mysql-1` started.
+### GREEN (after implementation)
 
-```powershell
-docker compose ps
+```
+Set-Location k:\Elora
+node --test theme/assets/recently-viewed.test.mjs
 ```
 
-**Output:**
 ```
-NAME            IMAGE       COMMAND                  SERVICE   CREATED              STATUS                    PORTS
-elora-mysql-1   mysql:8.0   "docker-entrypoint.s…"   mysql     About a minute ago   Up 59 seconds (healthy)   0.0.0.0:3306->3306/tcp, [::]:3306->3306/tcp
-```
-
-MySQL container reports **healthy** via compose healthcheck (`mysqladmin ping -h localhost`).
-
-### `GET /health`
-
-```powershell
-Set-Location app/server; npm run dev
-# (background — "Server ready" logged)
-curl.exe -s http://localhost:3000/health
+ok 1 - upsert puts the item first and unique by handle
+ok 2 - upsert caps at MAX 4
+ok 3 - forDisplay excludes the current handle
+ok 4 - readList returns [] for corrupt JSON
+ok 5 - writeList no-throws when setItem throws
+# tests 5
+# pass 5
+# fail 0
 ```
 
-**Output:**
-```
-{"ok":true}
-```
+## Files changed
 
-Dev server stopped after verification (`Stop-Process` on watcher PID).
-
-### TypeScript
-
-```powershell
-Set-Location app/server; npx tsc --noEmit
-```
-
-**Result:** Exit code 0, no errors.
-
-```powershell
-Set-Location app/server; npm run build
-```
-
-**Result:** Exit code 0 (`tsc` emitted `dist/`).
-
-### ESLint
-
-```powershell
-Set-Location app/server; npm run lint
-```
-
-**Result:** Exit code 0.
-
-```powershell
-npm run lint
-```
-
-**Result:** Exit code 0 (root script delegates to `ritualscore-server` workspace).
-
-Node emits a non-fatal `MODULE_TYPELESS_PACKAGE_JSON` warning suggesting `"type": "module"` in server `package.json`; lint still passes.
-
-## Files Created / Changed
-
-| Path | Action |
+| File | Action |
 |------|--------|
-| `package.json` | Created |
-| `.gitignore` | Created |
-| `.env.example` | Created |
-| `.env` | Created (gitignored) |
-| `docker-compose.yml` | Created |
-| `app/server/package.json` | Created |
-| `app/server/src/index.ts` | Created |
-| `app/server/drizzle.config.ts` | Created |
-| `app/server/tsconfig.json` | Created |
-| `app/server/eslint.config.js` | Created |
-| `app/server/dist/` | Generated by `npm run build` (gitignored) |
-| `app/web/package.json` | Created |
-| `app/web/vite.config.ts` | Created |
-| `app/web/tsconfig.json` | Created |
-| `app/web/src/.gitkeep` | Created |
-| `app/shopify.app.toml` | Created |
-| `node_modules/` | Generated by `npm install` (gitignored) |
-| `package-lock.json` | Generated by `npm install` |
+| `theme/assets/recently-viewed.js` | Created |
+| `theme/assets/recently-viewed.test.mjs` | Created |
 
-`IMPLEMENTATION_PLAN.md` was not edited. No git operations performed.
+Commit: `b2c2560` — `feat: add recently viewed storage helpers`
 
-## Self-Review
+## Self-review findings
 
-**Completeness:** All brief files and implied tsconfig/ESLint configs created. All four Done-when gates verified.
+- **Completeness:** Matches brief verbatim — constants, all five functions, exact test file content, no DOM/card/init code.
+- **Quality:** Immutability preserved (`list.slice()`, new arrays from `upsert`/`filter`). Invalid items guarded in `upsert` and `forDisplay`.
+- **YAGNI:** No extra exports, no round-trip read/write tests beyond corrupt JSON and quota failure (sufficient for Task 1 scope).
+- **TDD:** Tests written first; RED confirmed (module not found); implementation added; GREEN confirmed (5/5).
+- **Scope:** Only the two specified files committed; no `app/**`, Liquid, or docs staged.
 
-**Quality:** File contents match the brief verbatim where specified. Docker healthcheck added without changing image/env/ports/volume. ESLint 9 flat config with `typescript-eslint` recommended rules.
+## Issues or concerns
 
-**Discipline (YAGNI):** No README, schema, migrate.ts, React UI, theme, or extra libraries beyond brief allowances.
-
-**Issues found and addressed:** PowerShell does not support `&&`; used `Set-Location` semicolon syntax. React 19 / Polaris peer conflict resolved with `--legacy-peer-deps` at install time only (package.json unchanged).
-
-## Concerns
-
-1. **`npm install --legacy-peer-deps` required** — `@shopify/polaris@^13` declares `peer react@^18`; brief requires `react@^19`. Clean `npm install` fails with `ERESOLVE`. Document for controller or add `.npmrc` with `legacy-peer-deps=true` in a future task if desired.
-
-2. **Root `.env` vs server cwd** — `.env` lives at repo root per brief; `dotenv` in `index.ts` loads from `process.cwd()` (`app/server` when running `npm run dev`). `PORT` defaults to `3000` so `/health` works without a local server `.env`. Phase 2 `db:migrate` will need `DATABASE_URL` resolvable from `app/server` (symlink, copy, or dotenv path — not addressed in Phase 1).
-
-3. **ESLint module warning** — Adding `"type": "module"` to server `package.json` would silence Node’s reparsing warning but was omitted to stay close to verbatim server `package.json`.
-
-4. **`shopify.app.toml`** — Placeholder `client_id` and `application_url` kept as specified; not validated with `shopify app dev` (explicitly out of scope).
-
-## Commits
-
-None (per task constraints).
-
-## Fix pass
-
-### What changed
-
-- Added root `.npmrc` with `legacy-peer-deps=true` so plain `npm install` succeeds without CLI flags (React 19 / Polaris peer conflict).
-- Added gitignored `app/server/.env` copied from root `.env` (same keys as `.env.example`) so `dotenv` `config()` with no path works when cwd is `app/server`.
-- `app/server/src/index.ts` was **not** modified (still verbatim `config()` with no path).
-- `app/server/package.json` `dev` script unchanged.
-
-### Commands run and results
-
-| Command | Result |
-|---------|--------|
-| `Set-Location k:\Elora; npm install` (no flags) | Exit 0 — 384 packages audited |
-| `git check-ignore -v app/server/.env` | Matched `.gitignore:2:.env` |
-| `curl.exe -s http://localhost:3000/health` | `{"ok":true}` (existing server on port 3000) |
-| `Set-Location app/server; npx tsc --noEmit` | Exit 0 |
-| `Set-Location app/server; npm run lint` | Exit 0 (MODULE_TYPELESS_PACKAGE_JSON warning only; left as-is per brief) |
-
-### Confirm index.ts not modified
-
-`app/server/src/index.ts` remains exactly as specified: `import { config } from 'dotenv'` followed by `config()` with no path argument.
+- None blocking. `readList` does not validate individual item shape (not required in Task 1; Task 2 may normalize on write).
+- `.superpowers/sdd/task-1-brief.md` shows as modified in the working tree but was intentionally left unstaged per instructions.
