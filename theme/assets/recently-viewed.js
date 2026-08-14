@@ -37,13 +37,25 @@
     }
   }
 
+  function safeHref(url) {
+    var href = url ? String(url) : ''
+    if (href.charAt(0) === '/' && href.charAt(1) !== '/') return href
+    return '#'
+  }
+
+  function safeImage(src) {
+    var image = src ? String(src) : ''
+    if (!image || image.indexOf('https:') === 0) return image
+    return ''
+  }
+
   function cardModel(item) {
     var title = item && item.title ? String(item.title) : ''
     return {
-      href: item && item.url ? String(item.url) : '#',
+      href: safeHref(item && item.url),
       title: title,
       subtitle: item && item.subtitle ? String(item.subtitle) : '',
-      image: item && item.image ? String(item.image) : '',
+      image: safeImage(item && item.image),
       price: item && item.price ? String(item.price) : '',
       alt: title,
     }
@@ -110,7 +122,7 @@
     var recordEl = root.querySelector('[data-recently-viewed-record]')
     var resolvedStorage
     try {
-      resolvedStorage = storage || root.defaultView.localStorage
+      resolvedStorage = storage || doc.defaultView.localStorage
     } catch (err) {
       root.setAttribute('hidden', '')
       return

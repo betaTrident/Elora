@@ -80,11 +80,33 @@ test('cardModel omits blank subtitle', () => {
   assert.equal(model.subtitle, '')
 })
 
+function stubEl(tag) {
+  const attrs = {}
+  const children = []
+  return {
+    tagName: String(tag || 'div').toUpperCase(),
+    className: '',
+    textContent: '',
+    children,
+    setAttribute(name, value) {
+      attrs[name] = String(value)
+    },
+    getAttribute(name) {
+      return Object.prototype.hasOwnProperty.call(attrs, name) ? attrs[name] : null
+    },
+    appendChild(child) {
+      children.push(child)
+      return child
+    },
+  }
+}
+
 function makeInitDoc(options) {
   const opts = options || {}
   let doc
   const defaultListEl = {
     replaceChildren() {},
+    appendChild() {},
     get ownerDocument() {
       return doc
     },
@@ -112,6 +134,15 @@ function makeInitDoc(options) {
       }
       return null
     },
+  }
+  doc = {
+    querySelector(selector) {
+      if (selector === '[data-recently-viewed]') return root
+      return null
+    },
+    createElement(tag) {
+      return stubEl(tag)
+    },
     defaultView: {
       get localStorage() {
         if (opts.localStorageThrows) {
@@ -119,12 +150,6 @@ function makeInitDoc(options) {
         }
         return opts.storage || { getItem() { return null }, setItem() {} }
       },
-    },
-  }
-  doc = {
-    querySelector(selector) {
-      if (selector === '[data-recently-viewed]') return root
-      return null
     },
   }
   return { doc, root }
@@ -146,4 +171,57 @@ test('init fails closed when localStorage access throws', () => {
   const { doc, root } = makeInitDoc({ localStorageThrows: true })
   assert.doesNotThrow(() => RV.init(doc))
   assert.equal(root.getAttribute('hidden'), '')
+})
+
+test('init records via document defaultView localStorage', () => {
+  const recorded = []
+  const storage = {
+    getItem() {
+      return null
+    },
+    setItem(key, value) {
+      recorded.push({ key, value })
+    },
+  }
+  const { doc, root } = makeInitDoc({
+    storage,
+    recordEl: { textContent: JSON.stringify(item('glow-drops-serum')) },
+  })
+  RV.init(doc)
+  assert.equal(root.getAttribute('hidden'), null)
+  assert.equal(recorded.length, 1)
+  assert.equal(recorded[0].key, 'elora:recently-viewed')
+  const parsed = JSON.parse(recorded[0].value)
+  assert.equal(parsed.length, 1)
+  assert.equal(parsed[0].handle, 'glow-drops-serum')
+})
+
+test('buildCard uses safe href and skips unsafe image', () => {
+  const doc = {
+    createElement(tag) {
+      return stubEl(tag)
+    },
+  }
+  const card = RV.buildCard(doc, {
+    handle: 'glow-drops-serum',
+    url: '/products/glow-drops-serum',
+    title: 'Glow Drops Serum',
+    subtitle: '',
+    image: 'https://cdn.example/x.jpg',
+    price: '$52.00',
+  })
+  assert.equal(card.className, 'product-card')
+  const link = card.children[0]
+  assert.equal(link.getAttribute('href'), '/products/glow-drops-serum')
+  assert.equal(link.children[0].children[0].getAttribute('src'), 'https://cdn.example/x.jpg')
+
+  const unsafe = RV.buildCard(doc, {
+    handle: 'x',
+    url: '//evil.example/p',
+    title: 'X',
+    image: 'http://cdn.example/x.jpg',
+    price: '$1.00',
+  })
+  assert.equal(unsafe.children[0].getAttribute('href'), '#')
+  assert.equal(unsafe.children[0].children[0].children.length, 0)
 })
