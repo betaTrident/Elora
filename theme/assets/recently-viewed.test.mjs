@@ -57,3 +57,25 @@ test('writeList no-throws when setItem throws', () => {
   }
   assert.doesNotThrow(() => RV.writeList(storage, [item('a')]))
 })
+
+test('cardModel maps snapshot fields', () => {
+  const model = RV.cardModel({
+    handle: 'glow-drops-serum',
+    url: '/products/glow-drops-serum',
+    title: 'Glow Drops Serum',
+    subtitle: 'Niacinamide',
+    image: 'https://cdn.example/x.jpg',
+    price: '$52.00',
+  })
+  assert.equal(model.href, '/products/glow-drops-serum')
+  assert.equal(model.title, 'Glow Drops Serum')
+  assert.equal(model.subtitle, 'Niacinamide')
+  assert.equal(model.image, 'https://cdn.example/x.jpg')
+  assert.equal(model.price, '$52.00')
+  assert.equal(model.alt, 'Glow Drops Serum')
+})
+
+test('cardModel omits blank subtitle', () => {
+  const model = RV.cardModel(item('a'))
+  assert.equal(model.subtitle, '')
+})
