@@ -45,7 +45,9 @@
 
   function safeImage(src) {
     var image = src ? String(src) : ''
-    if (!image || image.indexOf('https:') === 0) return image
+    if (!image) return image
+    if (image.indexOf('https:') === 0) return image
+    if (image.indexOf('//') === 0) return image
     return ''
   }
 

@@ -196,6 +196,24 @@ test('init records via document defaultView localStorage', () => {
   assert.equal(parsed[0].handle, 'glow-drops-serum')
 })
 
+test('buildCard includes img for protocol-relative CDN image', () => {
+  const doc = {
+    createElement(tag) {
+      return stubEl(tag)
+    },
+  }
+  const card = RV.buildCard(doc, {
+    handle: 'glow-drops-serum',
+    url: '/products/glow-drops-serum',
+    title: 'Glow Drops Serum',
+    subtitle: '',
+    image: '//cdn.shopify.com/example.jpg',
+    price: '$52.00',
+  })
+  const link = card.children[0]
+  assert.equal(link.children[0].children[0].getAttribute('src'), '//cdn.shopify.com/example.jpg')
+})
+
 test('buildCard uses safe href and skips unsafe image', () => {
   const doc = {
     createElement(tag) {
