@@ -79,3 +79,71 @@ test('cardModel omits blank subtitle', () => {
   const model = RV.cardModel(item('a'))
   assert.equal(model.subtitle, '')
 })
+
+function makeInitDoc(options) {
+  const opts = options || {}
+  let doc
+  const defaultListEl = {
+    replaceChildren() {},
+    get ownerDocument() {
+      return doc
+    },
+  }
+  const root = {
+    attributes: {},
+    children: [],
+    getAttribute(name) {
+      return Object.prototype.hasOwnProperty.call(this.attributes, name)
+        ? this.attributes[name]
+        : null
+    },
+    setAttribute(name, value) {
+      this.attributes[name] = String(value)
+    },
+    removeAttribute(name) {
+      delete this.attributes[name]
+    },
+    querySelector(selector) {
+      if (selector === '[data-recently-viewed-list]') {
+        return opts.listEl === undefined ? defaultListEl : opts.listEl
+      }
+      if (selector === '[data-recently-viewed-record]') {
+        return opts.recordEl || null
+      }
+      return null
+    },
+    defaultView: {
+      get localStorage() {
+        if (opts.localStorageThrows) {
+          throw new Error('localStorage unavailable')
+        }
+        return opts.storage || { getItem() { return null }, setItem() {} }
+      },
+    },
+  }
+  doc = {
+    querySelector(selector) {
+      if (selector === '[data-recently-viewed]') return root
+      return null
+    },
+  }
+  return { doc, root }
+}
+
+test('init keeps section hidden when list element is missing', () => {
+  const { doc, root } = makeInitDoc({ listEl: null })
+  const storage = {
+    getItem() {
+      return JSON.stringify([item('a'), item('b')])
+    },
+    setItem() {},
+  }
+  RV.init(doc, storage)
+  assert.equal(root.getAttribute('hidden'), '')
+})
+
+test('init fails closed when localStorage access throws', () => {
+  const { doc, root } = makeInitDoc({ localStorageThrows: true })
+  assert.doesNotThrow(() => RV.init(doc))
+  assert.equal(root.getAttribute('hidden'), '')
+})

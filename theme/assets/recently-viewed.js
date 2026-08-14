@@ -108,18 +108,25 @@
     var listEl = root.querySelector('[data-recently-viewed-list]')
     var exclude = root.getAttribute('data-exclude-handle') || ''
     var recordEl = root.querySelector('[data-recently-viewed-record]')
-    var list = readList(storage || root.defaultView.localStorage)
+    var resolvedStorage
+    try {
+      resolvedStorage = storage || root.defaultView.localStorage
+    } catch (err) {
+      root.setAttribute('hidden', '')
+      return
+    }
+    var list = readList(resolvedStorage)
     if (recordEl && recordEl.textContent) {
       try {
         var snapshot = JSON.parse(recordEl.textContent)
         list = upsert(list, snapshot)
-        writeList(storage || root.defaultView.localStorage, list)
+        writeList(resolvedStorage, list)
       } catch (err) {
         /* ignore bad snapshot */
       }
     }
     var shown = forDisplay(list, exclude)
-    if (!shown.length) {
+    if (!listEl || !shown.length) {
       root.setAttribute('hidden', '')
       return
     }
