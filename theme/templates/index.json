@@ -190,7 +190,11 @@
         "collection": "skincare-essentials",
         "products_to_show": 9
       }
+    },
+    "recently-viewed": {
+      "type": "recently-viewed",
+      "settings": {}
     }
   },
-  "order": ["hero", "builder", "editorial", "ingredients", "scent", "featured"]
+  "order": ["hero", "builder", "editorial", "ingredients", "scent", "featured", "recently-viewed"]
 }

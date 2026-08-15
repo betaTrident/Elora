@@ -1,0 +1,48 @@
+{%- liquid
+  assign exclude_handle = ''
+  if request.page_type == 'product' and product != blank
+    assign exclude_handle = product.handle
+  endif
+-%}
+<section
+  class="recently-viewed page-width"
+  data-recently-viewed
+  data-exclude-handle="{{ exclude_handle | escape }}"
+  hidden
+>
+  <h2 class="recently-viewed__heading">{{ 'products.recently_viewed' | t }}</h2>
+  <ul class="product-grid" role="list" data-recently-viewed-list></ul>
+  {%- if request.page_type == 'product' and product != blank -%}
+    {%- if product.featured_image != blank -%}
+      {%- assign recent_image = product.featured_image | image_url: width: 800 -%}
+    {%- else -%}
+      {%- assign recent_image = '' -%}
+    {%- endif -%}
+    <script type="application/json" data-recently-viewed-record>
+      {
+        "handle": {{ product.handle | json }},
+        "url": {{ product.url | json }},
+        "title": {{ product.title | json }},
+        "subtitle": {{ product.metafields.elora.subtitle.value | json }},
+        "image": {{ recent_image | json }},
+        "price": {{ product.price | money | json }}
+      }
+    </script>
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Recently viewed",
+  "class": "section-recently-viewed",
+  "enabled_on": {
+    "templates": ["product", "index"]
+  },
+  "settings": [],
+  "presets": [
+    {
+      "name": "Recently viewed"
+    }
+  ]
+}
+{% endschema %}

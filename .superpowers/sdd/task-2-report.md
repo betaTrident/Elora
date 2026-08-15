@@ -1,139 +1,165 @@
-# Task 2 Report — Phase 2: Database Schema & Migrations
+# Task 2 Report: Card DOM matching product-card
 
-## What Was Implemented
+## Summary
 
-- Created 8 Drizzle schema table files under `app/server/src/db/schema/`:
-  - `shops.ts`, `sessions.ts`, `shopSettings.ts`, `rituals.ts`, `ritualComponents.ts`, `scoreSnapshots.ts`, `alerts.ts`, `activityLogs.ts`
-- Created `schema/index.ts` barrel export for all tables
-- Created `app/server/src/db/client.ts` — mysql2 connection pool + Drizzle client with schema (uses `mode: 'default'`; no adaptation needed)
-- Created `app/server/src/db/migrate.ts` — migration runner with `.catch` for non-zero exit on failure
-- Updated `app/server/drizzle.config.ts` to load dotenv before reading `DATABASE_URL`
-- Generated initial migration SQL and renamed to `drizzle/0001_initial.sql`
-- Updated `drizzle/meta/_journal.json` tag to `0001_initial`
-- Renamed snapshot `drizzle/meta/0000_snapshot.json` → `drizzle/meta/0001_snapshot.json`
-- Applied migration to Docker MySQL (`elora-mysql-1`, database `ritual_score`)
+Added `cardModel`, `buildCard`, `render`, and `init` to `theme/assets/recently-viewed.js`, exported on `globalThis.EloraRecentlyViewed`. Two new Node tests cover `cardModel` field mapping and blank subtitle handling. Task 1 helpers and tests remain unchanged and passing.
 
-### ESLint fixes (unused imports from plan snippets)
+## Changes
 
-- `rituals.ts`: removed unused `decimal` import
-- `ritualComponents.ts`: removed unused `text` import
+### `theme/assets/recently-viewed.js`
 
-Column definitions and table names remain exactly as specified in the plan.
+- **`cardModel(item)`** — Maps snapshot `{ handle, url, title, subtitle, image, price }` to `{ href, title, subtitle, image, price, alt }` with safe string coercion and empty defaults.
+- **`buildCard(doc, item)`** — Builds `article.product-card` DOM via `createElement` + `textContent` / `setAttribute`; omits `<img>` when image is empty; omits subtitle `<p>` when subtitle is empty. Matches `theme/snippets/product-card.liquid` structure.
+- **`render(container, items)`** — Clears container with `replaceChildren()`, appends `<li>` children each containing a built card.
+- **`init(doc, storage)`** — Finds `[data-recently-viewed]`, reads/upserts from `[data-recently-viewed-record]`, filters with `forDisplay`, hides root when empty, otherwise renders into `[data-recently-viewed-list]`.
+- **Auto-init** — `if (typeof document !== 'undefined') { init(document) }` so Node tests do not throw.
 
-## Commands and Outputs
+### `theme/assets/recently-viewed.test.mjs`
 
-### `npm run db:generate`
+- `cardModel maps snapshot fields` — Asserts href, title, subtitle, image, price, alt.
+- `cardModel omits blank subtitle` — Asserts empty subtitle string from minimal item fixture.
 
-```
-8 tables
-activity_logs 11 columns 0 indexes 1 fks
-alerts 9 columns 0 indexes 2 fks
-shops 6 columns 0 indexes 0 fks
-sessions 8 columns 0 indexes 0 fks
-shop_settings 2 columns 0 indexes 1 fks
-rituals 10 columns 0 indexes 1 fks
-ritual_components 9 columns 0 indexes 1 fks
-score_snapshots 5 columns 0 indexes 1 fks
+## TDD Evidence
 
-[✓] Your SQL migration file ➜ drizzle\0000_military_valkyrie.sql
-```
+### RED (Step 2 — before implementation)
 
-Renamed to `drizzle/0001_initial.sql` and journal updated.
-
-### `npm run db:migrate`
+Command: `node --test theme/assets/recently-viewed.test.mjs`
 
 ```
-Migrations applied
+# pass 5
+# fail 2
+not ok 6 - cardModel maps snapshot fields
+  error: 'RV.cardModel is not a function'
+not ok 7 - cardModel omits blank subtitle
+  error: 'RV.cardModel is not a function'
 ```
 
-### `SHOW TABLES` (via `docker exec elora-mysql-1 mysql -u ritual -p*** ritual_score`)
+### GREEN (Step 4 — after implementation)
+
+Command: `node --test theme/assets/recently-viewed.test.mjs`
 
 ```
-Tables_in_ritual_score
-__drizzle_migrations
-activity_logs
-alerts
-ritual_components
-rituals
-score_snapshots
-sessions
-shop_settings
-shops
+# tests 7
+# pass 7
+# fail 0
+ok 1 - upsert puts the item first and unique by handle
+ok 2 - upsert caps at MAX 4
+ok 3 - forDisplay excludes the current handle
+ok 4 - readList returns [] for corrupt JSON
+ok 5 - writeList no-throws when setItem throws
+ok 6 - cardModel maps snapshot fields
+ok 7 - cardModel omits blank subtitle
 ```
 
-All 8 application tables present (plus `__drizzle_migrations` tracking table).
+## Self-review
 
-### `SHOW CREATE TABLE ritual_components`
-
-```
-CREATE TABLE `ritual_components` (
-  `id` varchar(36) NOT NULL DEFAULT (uuid()),
-  `ritual_id` varchar(36) NOT NULL,
-  `shopify_product_id` varchar(100) NOT NULL,
-  `shopify_variant_id` varchar(100) DEFAULT NULL,
-  `product_title_cache` varchar(255) DEFAULT NULL,
-  `role` enum('cleanse','treat','seal','scent') NOT NULL,
-  `quantity` int NOT NULL DEFAULT '1',
-  `unit_cost` decimal(10,2) DEFAULT NULL,
-  `sort_order` int NOT NULL DEFAULT '0',
-  PRIMARY KEY (`id`),
-  KEY `ritual_components_ritual_id_rituals_id_fk` (`ritual_id`),
-  CONSTRAINT `ritual_components_ritual_id_rituals_id_fk` FOREIGN KEY (`ritual_id`) REFERENCES `rituals` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-```
-
-FK on `ritual_id` → `rituals.id` with `ON DELETE CASCADE` confirmed.
-
-### `npx tsc --noEmit`
-
-Exit code: 0 (no errors)
-
-### `npm run lint`
-
-Exit code: 0 (no errors; Node emits a pre-existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`)
-
-## Files Changed
-
-| Path | Action |
-|------|--------|
-| `app/server/src/db/schema/shops.ts` | Created |
-| `app/server/src/db/schema/sessions.ts` | Created |
-| `app/server/src/db/schema/shopSettings.ts` | Created |
-| `app/server/src/db/schema/rituals.ts` | Created |
-| `app/server/src/db/schema/ritualComponents.ts` | Created |
-| `app/server/src/db/schema/scoreSnapshots.ts` | Created |
-| `app/server/src/db/schema/alerts.ts` | Created |
-| `app/server/src/db/schema/activityLogs.ts` | Created |
-| `app/server/src/db/schema/index.ts` | Created |
-| `app/server/src/db/client.ts` | Created |
-| `app/server/src/db/migrate.ts` | Created |
-| `app/server/drizzle.config.ts` | Modified (dotenv load) |
-| `app/server/drizzle/0001_initial.sql` | Created (renamed from `0000_military_valkyrie.sql`) |
-| `app/server/drizzle/meta/_journal.json` | Created/updated |
-| `app/server/drizzle/meta/0001_snapshot.json` | Created (renamed from `0000_snapshot.json`) |
-
-## Self-Review
-
-- All 8 tables match the plan's column names, types, defaults, and FK relationships
-- `shopify_product_id` / `shopify_variant_id` remain `varchar(100)` for Shopify GID caches
-- `ritual_components.ritual_id` FK uses `onDelete: 'cascade'` in schema and `ON DELETE CASCADE` in MySQL
-- Dotenv loaded in `client.ts` (via import before pool) and `drizzle.config.ts` for generate/migrate
-- `drizzle-orm` 0.36 accepts `{ schema, mode: 'default' }` without constructor adaptation
-- Migration file named `0001_initial.sql` per done-when gate
-- No secrets in schema or SQL; `DATABASE_URL` loaded from gitignored `.env`
-- No Phase 3 auth files created
-- No git commit made
+| Requirement | Status |
+|-------------|--------|
+| Task 1 helpers unchanged | OK — original 5 tests pass |
+| Export cardModel, buildCard, render, init | OK |
+| init guarded for Node (`typeof document`) | OK |
+| No innerHTML for stored strings | OK — createElement + textContent/setAttribute only |
+| Markup matches product-card.liquid | OK — same class names and conditional subtitle/image |
+| No Liquid / template edits | OK |
+| Commit only two theme files | OK |
 
 ## Concerns
 
-- **Snapshot index mismatch**: drizzle-kit generated `0000_snapshot.json` but journal `idx` remains `0` with tag `0001_initial`. Migration applied successfully; future `db:generate` runs should be watched to ensure drizzle-kit journal/snapshot numbering stays consistent.
-- **Pre-existing ESLint warning**: `package.json` lacks `"type": "module"` causing a Node warning when running ESLint (not introduced by this task).
+None. `buildCard` / `render` / `init` are not covered by Node DOM tests (by design per brief); Task 3–4 will wire Liquid markup and browser verification.
 
-## Done-When Checklist
+## Commit
 
-- [x] `app/server/drizzle/0001_initial.sql` exists
-- [x] All 8 tables exist in MySQL
-- [x] FK cascade on `ritual_components.ritual_id` confirmed
-- [x] `tsc --noEmit` passes
-- [x] `npm run lint` passes
-- [x] No commit made
+`feat: render recently viewed cards with product-card classes`
+
+---
+
+## Review fix (Important findings)
+
+### Changes
+
+**`theme/assets/recently-viewed.js` — `init`**
+
+- Resolve storage in `try/catch`; on throw (e.g. private browsing `localStorage`), set `hidden` on root and return.
+- Reuse `resolvedStorage` for `readList` / `writeList`.
+- Only `removeAttribute('hidden')` when `[data-recently-viewed-list]` exists **and** `shown.length > 0`; otherwise set `hidden` and return.
+
+**`theme/assets/recently-viewed.test.mjs`**
+
+- `makeInitDoc` helper for minimal DOM mocks.
+- `init keeps section hidden when list element is missing` — items in storage but no list container stays hidden.
+- `init fails closed when localStorage access throws` — no throw; section stays hidden.
+
+### Tests
+
+Command: `node --test theme/assets/recently-viewed.test.mjs`
+
+```
+TAP version 13
+# Subtest: upsert puts the item first and unique by handle
+ok 1 - upsert puts the item first and unique by handle
+  ---
+  duration_ms: 1.4518
+  type: 'test'
+  ...
+# Subtest: upsert caps at MAX 4
+ok 2 - upsert caps at MAX 4
+  ---
+  duration_ms: 0.2234
+  type: 'test'
+  ...
+# Subtest: forDisplay excludes the current handle
+ok 3 - forDisplay excludes the current handle
+  ---
+  duration_ms: 0.1648
+  type: 'test'
+  ...
+# Subtest: readList returns [] for corrupt JSON
+ok 4 - readList returns [] for corrupt JSON
+  ---
+  duration_ms: 0.2148
+  type: 'test'
+  ...
+# Subtest: writeList no-throws when setItem throws
+ok 5 - writeList no-throws when setItem throws
+  ---
+  duration_ms: 0.2598
+  type: 'test'
+  ...
+# Subtest: cardModel maps snapshot fields
+ok 6 - cardModel maps snapshot fields
+  ---
+  duration_ms: 0.1536
+  type: 'test'
+  ...
+# Subtest: cardModel omits blank subtitle
+ok 7 - cardModel omits blank subtitle
+  ---
+  duration_ms: 0.1644
+  type: 'test'
+  ...
+# Subtest: init keeps section hidden when list element is missing
+ok 8 - init keeps section hidden when list element is missing
+  ---
+  duration_ms: 0.3433
+  type: 'test'
+  ...
+# Subtest: init fails closed when localStorage access throws
+ok 9 - init fails closed when localStorage access throws
+  ---
+  duration_ms: 0.4533
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 101.4154
+```
+
+### Commit
+
+`fix: fail closed when recently viewed list or storage missing` (`3fe2524`)
