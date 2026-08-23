@@ -44,7 +44,7 @@ Repo folder: `elora/`. Theme shop name in `settings_schema.json` / locales: Elor
 
 ---
 
-## Phase progress
+## Phase progress map
 
 | Phase | Status |
 |-------|--------|
