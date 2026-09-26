@@ -1,4 +1,4 @@
-# Agent Instructions
+# Agents Instructions
 
 This is a **production-ready AI coding plugin** providing 18 specialized agents, 28 skills, and automated hook workflows for software development.
 
