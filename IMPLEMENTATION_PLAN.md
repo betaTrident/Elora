@@ -1,4 +1,4 @@
-# Elora + RitualScore — Strategic Implementation Plan
+# Elora + RitualScore Feature — Strategic Implementation Plan
 
 > This document is the single source of truth for building the MVP.
 > It translates the product plan into concrete files, commands, phases, and acceptance criteria.
